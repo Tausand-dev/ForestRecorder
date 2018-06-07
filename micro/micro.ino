@@ -28,58 +28,201 @@
 // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
 #define DREQ 3       // VS1053 Data request, ideally an Interrupt pin
 
+#define RECBUFFSIZE 128  // 64 or 128 bytes.
+
 #define SCHEDULE_LINE_LENGTH 32
 
-//Adafruit_VS1053_FilePlayer musicPlayer = Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
+File recording;  // the file we will save our recording to
+uint8_t recording_buffer[RECBUFFSIZE];
+Adafruit_VS1053_FilePlayer musicPlayer = Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
+
 
 char NEXT_TASK[SCHEDULE_LINE_LENGTH];
 uint16_t NUMBER_TASKS = 0;
 uint16_t DONE_TASKS = 0;
 
+uint8_t aboutToChange = false;
+uint8_t isRecording = false;
+
+void(* resetFunc) (void) = 0;
+
 void setup() 
 {
-    Serial.begin(115200);
+    Serial.begin(9600);
     Serial.println("Start communication");
-    setupWatchDogTimer();
-//    if (! musicPlayer.begin())
-//    {
-//        Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
-//        while (1);
-//    }
-//    
-//    Serial.println(F("VS1053 found"));
-//    if (!SD.begin(CARDCS))
-//    {
-//        Serial.println(F("SD failed, or not present"));
-//        while (1);  // don't do anything more
-//    }
-//
-//    totalTasks();
+    
+    if (! musicPlayer.begin())
+    {
+        Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+        resetFunc();
+    }
+    
+    Serial.println(F("VS1053 found"));
+    if (!SD.begin(CARDCS))
+    {
+        Serial.println(F("SD failed, or not present"));
+        resetFunc();
+    }
+
+    //totalTasks();
 //    Serial.print("TOTAL TASKS: ");
 //    Serial.println(NUMBER_TASKS, DEC);
 
-    delay(10000);
+    if (! musicPlayer.prepareRecordOgg("v44k1q05.img"))
+    {
+         Serial.println("Couldn't load plugin!");
+         resetFunc();    
+    }
+    delay(1000);
+    //doTask();
+    setupWatchDogTimer();
 }
 
 void loop()
 {
-      enterSleep();
-      doTask();
+      /*if(! isRecording)
+      {
+          enterSleep();
+      }*/
+      recordingFunc();
+      //doTask();
 }
 
-void doTask()
+
+
+void recordingFunc(void)
+{
+    if (!isRecording && !aboutToChange)
+    {
+        Serial.println("Begin recording");
+        isRecording = true;
+        
+        // Check if the file exists already
+        char filename[15];
+        strcpy(filename, "RECORD00.OGG");
+        for (uint8_t i = 0; i < 100; i++)
+        {
+            filename[6] = '0' + i/10;
+            filename[7] = '0' + i%10;
+            // create if does not exist, do not open existing, write, sync after write
+            if (! SD.exists(filename))
+            {
+                break;
+            }
+        }
+        Serial.print("Recording to "); 
+        Serial.println(filename);
+        recording = SD.open(filename, FILE_WRITE);
+        if (! recording)
+        {
+             Serial.println("Couldn't open file to record!");
+             resetFunc();
+        }
+        musicPlayer.startRecordOgg(true); // use microphone (for linein, pass in 'false')
+    }
+    if (isRecording)
+    {
+        saveRecordedData(isRecording);
+    }
+    if (isRecording && aboutToChange)
+    {
+        Serial.println("End recording");
+        musicPlayer.stopRecordOgg();
+        isRecording = false;
+        //aboutToChange = false;
+        saveRecordedData(isRecording);
+        recording.close();
+        delay(1000);
+        
+        //writeDoneTask(1);
+        delay(25);
+    }
+}
+
+/*void doTask()
 {
     //setNextTask();
-    delay(2000);
-    //writeDoneTask(1);
-    delay(25);
-}
+    recordingFunc();
+}*/
 
-ISR(WDT_vect)
+uint16_t saveRecordedData(boolean isrecord)
 {
+    uint16_t written = 0;
     
+    // read how many words are waiting for us
+    uint16_t wordswaiting = musicPlayer.recordedWordsWaiting();    
+    // try to process 256 words (512 bytes) at a time, for best speed
+    while (wordswaiting > 256)
+    {
+        //Serial.print("Waiting: "); Serial.println(wordswaiting);
+        // for example 128 bytes x 4 loops = 512 bytes
+        for (int x = 0; x < 512/RECBUFFSIZE; x++)
+        {
+        // fill the buffer!
+            for (uint16_t addr = 0; addr < RECBUFFSIZE; addr+=2)
+            {
+                uint16_t t = musicPlayer.recordedReadWord();
+                //Serial.println(t, HEX);
+                recording_buffer[addr] = t >> 8; 
+                recording_buffer[addr+1] = t;
+            }
+            if (! recording.write(recording_buffer, RECBUFFSIZE))
+            {
+                Serial.print("Couldn't write "); Serial.println(RECBUFFSIZE); 
+                resetFunc();
+                //while (1);
+            }
+        }
+        // flush 512 bytes at a time
+        recording.flush();
+        written += 256;
+        wordswaiting -= 256;
+    }
+    
+    wordswaiting = musicPlayer.recordedWordsWaiting();
+    if (!isrecord)
+    {
+        Serial.print(wordswaiting); Serial.println(" remaining");
+        // wrapping up the recording!
+        uint16_t addr = 0;
+        for (int x=0; x < wordswaiting-1; x++)
+        {
+            // fill the buffer!
+            uint16_t t = musicPlayer.recordedReadWord();
+            recording_buffer[addr] = t >> 8; 
+            recording_buffer[addr+1] = t;
+            if (addr > RECBUFFSIZE)
+            {
+                if (! recording.write(recording_buffer, RECBUFFSIZE))
+                {
+                    Serial.println("Couldn't write!");
+                    resetFunc();
+                }
+                recording.flush();
+                addr = 0;
+            }
+        }
+        if (addr != 0)
+        {
+            if (!recording.write(recording_buffer, addr))
+            {
+                Serial.println("Couldn't write!"); while (1);
+            }
+            written += addr;
+        }
+        musicPlayer.sciRead(VS1053_SCI_AICTRL3);
+        if (! (musicPlayer.sciRead(VS1053_SCI_AICTRL3) & _BV(2)))
+        {
+            recording.write(musicPlayer.recordedReadWord() & 0xFF);
+            written++;
+        }
+        recording.flush();
+    }
+    
+    return written;
 }
 
+/*
 void enterSleep(void)
 {
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
@@ -90,38 +233,23 @@ void enterSleep(void)
     
     power_all_enable();
     delay(25);
+}*/
+
+ISR(WDT_vect)
+{
+    aboutToChange = true;
 }
 
 void setupWatchDogTimer()
 {
     
     MCUSR &= ~(1<<WDRF);
-
-    // Set the WDCE bit (bit 4) and the WDE bit (bit 3) of the WDTCSR. The WDCE
-    // bit must be set in order to change WDE or the watchdog pre-scalers.
-    // Setting the WDCE bit will allow updates to the pre-scalers and WDE for 4
-    // clock cycles then it will be reset by hardware.
     WDTCSR |= (1<<WDCE) | (1<<WDE);
-
-    /**
-     *  Setting the watchdog pre-scaler value with VCC = 5.0V and 16mHZ
-     *  WDP3 WDP2 WDP1 WDP0 | Number of WDT | Typical Time-out at Oscillator Cycles
-     *  0    0    0    0    |   2K cycles   | 16 ms
-     *  0    0    0    1    |   4K cycles   | 32 ms
-     *  0    0    1    0    |   8K cycles   | 64 ms
-     *  0    0    1    1    |  16K cycles   | 0.125 s
-     *  0    1    0    0    |  32K cycles   | 0.25 s
-     *  0    1    0    1    |  64K cycles   | 0.5 s
-     *  0    1    1    0    |  128K cycles  | 1.0 s
-     *  0    1    1    1    |  256K cycles  | 2.0 s
-     *  1    0    0    0    |  512K cycles  | 4.0 s
-     *  1    0    0    1    | 1024K cycles  | 8.0 s
-    */
     WDTCSR  = (1 << WDP3) | (0 << WDP2) | (0 << WDP1) | (1 << WDP0);
-    // Enable the WD interrupt (note: no reset).
     WDTCSR |= _BV(WDIE);
 }
 
+/*
 uint16_t totalTasks(void)
 {
     File schedule_file = SD.open("/schedule.dat");
@@ -237,4 +365,4 @@ void printDirectory(File dir, int numTabs)
         }
         entry.close();
     }
-}
+}*/
