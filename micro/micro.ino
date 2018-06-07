@@ -15,6 +15,9 @@
 #include <SPI.h>
 #include <Adafruit_VS1053.h>
 #include <SD.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
 
 // These are the pins used for the breakout example
 #define BREAKOUT_RESET  9      // VS1053 reset pin (output)
@@ -25,104 +28,213 @@
 // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
 #define DREQ 3       // VS1053 Data request, ideally an Interrupt pin
 
-Adafruit_VS1053_FilePlayer musicPlayer = Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
+#define SCHEDULE_LINE_LENGTH 32
+
+//Adafruit_VS1053_FilePlayer musicPlayer = Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
+
+char NEXT_TASK[SCHEDULE_LINE_LENGTH];
+uint16_t NUMBER_TASKS = 0;
+uint16_t DONE_TASKS = 0;
 
 void setup() 
 {
-    Serial.begin(9600);
-    Serial.println("Adafruit VS1053 Simple Test");
+    Serial.begin(115200);
+    Serial.println("Start communication");
+    setupWatchDogTimer();
+//    if (! musicPlayer.begin())
+//    {
+//        Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+//        while (1);
+//    }
+//    
+//    Serial.println(F("VS1053 found"));
+//    if (!SD.begin(CARDCS))
+//    {
+//        Serial.println(F("SD failed, or not present"));
+//        while (1);  // don't do anything more
+//    }
+//
+//    totalTasks();
+//    Serial.print("TOTAL TASKS: ");
+//    Serial.println(NUMBER_TASKS, DEC);
 
-    if (! musicPlayer.begin())
-    { // initialise the music player
-       Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
-       while (1);
-    }
-    Serial.println(F("VS1053 found"));
-  
-    if (!SD.begin(CARDCS))
-    {
-      Serial.println(F("SD failed, or not present"));
-      while (1);  // don't do anything more
-    }
-
-    // list files
-    printDirectory(SD.open("/"), 0);
-    
-    // Set volume for left, right channels. lower numbers == louder volume!
-    musicPlayer.setVolume(20,20);
-    musicPlayer.useInterrupt(VS1053_FILEPLAYER_PIN_INT);  // DREQ int
-    
-    //Serial.println(F("Playing track 001"));
-    //musicPlayer.playFullFile("track001.mp3");
-    // Play another file in the background, REQUIRES interrupts!
-    Serial.println(F("Playing track 002"));
-    musicPlayer.startPlayingFile("track002.mp3");
+    delay(10000);
 }
 
 void loop()
 {
-    if (musicPlayer.stopped())
-    {
-        Serial.println("Done playing music");
-        while (1)
-        {
-            delay(10);  // we're done! do nothing...
-        }
-    }
-    if (Serial.available())
-    {
-        char c = Serial.read();
-    
-        // if we get an 's' on the serial console, stop!
-        if (c == 's')
-        {
-            musicPlayer.stopPlaying();
-        }
-        
-        // if we get an 'p' on the serial console, pause/unpause!
-        if (c == 'p')
-        {
-            if (! musicPlayer.paused())
-            {
-                Serial.println("Paused");
-                musicPlayer.pausePlaying(true);
-            }
-            else
-            { 
-                Serial.println("Resumed");
-                musicPlayer.pausePlaying(false);
-            }
-        }
-    }
-    delay(100);
+      enterSleep();
+      doTask();
 }
 
-/// File listing helper
+void doTask()
+{
+    //setNextTask();
+    delay(2000);
+    //writeDoneTask(1);
+    delay(25);
+}
+
+ISR(WDT_vect)
+{
+    
+}
+
+void enterSleep(void)
+{
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+    sleep_enable();
+    
+    sleep_mode();
+    sleep_disable();
+    
+    power_all_enable();
+    delay(25);
+}
+
+void setupWatchDogTimer()
+{
+    
+    MCUSR &= ~(1<<WDRF);
+
+    // Set the WDCE bit (bit 4) and the WDE bit (bit 3) of the WDTCSR. The WDCE
+    // bit must be set in order to change WDE or the watchdog pre-scalers.
+    // Setting the WDCE bit will allow updates to the pre-scalers and WDE for 4
+    // clock cycles then it will be reset by hardware.
+    WDTCSR |= (1<<WDCE) | (1<<WDE);
+
+    /**
+     *  Setting the watchdog pre-scaler value with VCC = 5.0V and 16mHZ
+     *  WDP3 WDP2 WDP1 WDP0 | Number of WDT | Typical Time-out at Oscillator Cycles
+     *  0    0    0    0    |   2K cycles   | 16 ms
+     *  0    0    0    1    |   4K cycles   | 32 ms
+     *  0    0    1    0    |   8K cycles   | 64 ms
+     *  0    0    1    1    |  16K cycles   | 0.125 s
+     *  0    1    0    0    |  32K cycles   | 0.25 s
+     *  0    1    0    1    |  64K cycles   | 0.5 s
+     *  0    1    1    0    |  128K cycles  | 1.0 s
+     *  0    1    1    1    |  256K cycles  | 2.0 s
+     *  1    0    0    0    |  512K cycles  | 4.0 s
+     *  1    0    0    1    | 1024K cycles  | 8.0 s
+    */
+    WDTCSR  = (1 << WDP3) | (0 << WDP2) | (0 << WDP1) | (1 << WDP0);
+    // Enable the WD interrupt (note: no reset).
+    WDTCSR |= _BV(WDIE);
+}
+
+uint16_t totalTasks(void)
+{
+    File schedule_file = SD.open("/schedule.dat");
+    
+    if(! schedule_file)
+    {
+        Serial.println("Schedule file does not exist.");
+    }
+    else
+    {
+        NUMBER_TASKS = schedule_file.size() / SCHEDULE_LINE_LENGTH;
+    }
+    schedule_file.close();
+    return NUMBER_TASKS;
+}
+
+void writeDoneTask(uint8_t write_next_task)
+{
+    File done_file = SD.open("/done.dat", FILE_WRITE);
+    if(done_file) 
+    {
+        if (write_next_task & (NEXT_TASK[0] != ' '))
+        {
+            done_file.write(NEXT_TASK);
+            done_file.println("");
+            NEXT_TASK[0] = ' ';
+        }
+    }
+    else
+    {
+        Serial.println("Error opening done.dat");
+    }
+    done_file.close();
+}
+
+uint16_t setDoneTasks(void)
+{
+    File done_file = SD.open("/done.dat");
+    if(! done_file)
+    {
+        Serial.println("Done file does not exist.");
+        DONE_TASKS = 0;
+        writeDoneTask(0);
+    }
+    else
+    {
+        DONE_TASKS = done_file.size() / SCHEDULE_LINE_LENGTH;
+        Serial.print("DONE TASKS: ");
+        Serial.println(DONE_TASKS, DEC);
+    }
+    done_file.close();
+    return DONE_TASKS;
+}
+
+void setNextTask(void)
+{
+    char letter;
+    uint16_t i, j;
+
+    totalTasks();
+    setDoneTasks();
+
+    File schedule_file = SD.open("/schedule.dat");
+    
+    if(! schedule_file)
+    {
+        Serial.println("Schedule file does not exist.");
+    }
+    else
+    {
+        for(i = 0; i < NUMBER_TASKS; i++)
+        {
+            for(j = 0; j < SCHEDULE_LINE_LENGTH; j++)
+            {
+                letter = schedule_file.read();
+                if ((i == DONE_TASKS) & (j < SCHEDULE_LINE_LENGTH -1))
+                {
+                    NEXT_TASK[j] = letter;
+                }
+            }
+        }
+    }
+    Serial.print("NEXT_TASK: ");
+    Serial.write(NEXT_TASK);
+    Serial.println("");
+    schedule_file.close();
+}
+
 void printDirectory(File dir, int numTabs)
 {
-   while(true)
-   {
-     File entry =  dir.openNextFile();
-     if(! entry)
-     {
-       Serial.println("**nomorefiles**");
-       break;
-     }
-     for (uint8_t i=0; i<numTabs; i++) 
-     {
-       Serial.print('\t');
-     }
-     Serial.print(entry.name());
-     if(entry.isDirectory())
-     {
-       Serial.println("/");
-       printDirectory(entry, numTabs+1);
-     }
-     else
-     {
-       Serial.print("\t\t");
-       Serial.println(entry.size(), DEC);
-     }
-     entry.close();
-   }
+    while(true)
+    {
+        File entry =  dir.openNextFile();
+        if(! entry)
+        {
+            Serial.println("**nomorefiles**");
+            break;
+        }
+        for (uint8_t i=0; i<numTabs; i++) 
+        {
+            Serial.print('\t');
+        }
+        Serial.print(entry.name());
+        if(entry.isDirectory())
+        {
+            Serial.println("/");
+            printDirectory(entry, numTabs+1);
+        }
+        else
+        {
+            Serial.print("\t\t");
+            Serial.println(entry.size(), DEC);
+        }
+        entry.close();
+    }
 }
