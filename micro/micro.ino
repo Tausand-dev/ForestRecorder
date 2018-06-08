@@ -1,7 +1,3 @@
-
-
-
-
 /*************************************************** 
   This is an example for the Adafruit VS1053 Codec Breakout
 
@@ -40,7 +36,7 @@
 // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
 #define DREQ 3       // VS1053 Data request, ideally an Interrupt pin
 
-#define RECBUFFSIZE 64  // 64 or 128 bytes.
+#define RECBUFFSIZE 128  // 64 or 128 bytes.
 
 #define MWORDS 256
 #define MBYTES (MWORDS * 2)
@@ -100,6 +96,7 @@ void setup()
     }
     delay(1000);
     //doTask();
+    recordingFunc();
     setupWatchDogTimer();
 }
 
@@ -110,6 +107,7 @@ void loop()
           enterSleep();
       }*/
       recordingFunc();
+      
       //doTask();
 }
 
@@ -119,22 +117,8 @@ void recordingFunc(void)
     {
         Serial.println("Begin recording");
         isRecording = true;
-        
-        // Check if the file exists already
-//        char filename[15];
-//        strcpy(filename, "RECORD00.txt");
-//        for (uint8_t i = 0; i < 100; i++)
-//        {
-//            filename[6] = '0' + i/10;
-//            filename[7] = '0' + i%10;
-//            // create if does not exist, do not open existing, write, sync after write
-//            if (! SD.exists(filename))
-//            {
-//                break;
-//            }
-//        }
 
-        strcpy(RECORDING_NAME, "RECORD00.txt");
+        strcpy(RECORDING_NAME, "Record00.ogg");
         for (uint8_t i = 0; i < 100; i++)
         {
             RECORDING_NAME[6] = '0' + i/10;
@@ -148,7 +132,7 @@ void recordingFunc(void)
         Serial.print("Recording to "); 
         Serial.println(RECORDING_NAME);
 
-        if (! recording.open(RECORDING_NAME, O_CREAT | O_WRITE | O_SYNC | O_AT_END))
+        if (! recording.open(RECORDING_NAME, O_CREAT | O_WRITE | O_AT_END))
         {
              Serial.println("Couldn't open file to record!");
              resetFunc();
@@ -196,7 +180,7 @@ uint16_t saveRecordedData(boolean isrecord)
     // try to process 256 words (512 bytes) at a time, for best speed
     while (wordswaiting > MWORDS)
     {
-        Serial.print("Waiting: "); Serial.println(wordswaiting);
+//        Serial.print("Waiting: "); Serial.println(wordswaiting);
         // for example 128 bytes x 4 loops = 512 bytes
         for (int x = 0; x < MBYTES/RECBUFFSIZE; x++)
         {
@@ -218,7 +202,6 @@ uint16_t saveRecordedData(boolean isrecord)
         recording.flush();
         written += MWORDS;
         wordswaiting -= MWORDS;
-        
     }
     wordswaiting = musicPlayer.recordedWordsWaiting();
     if (!isrecord)
