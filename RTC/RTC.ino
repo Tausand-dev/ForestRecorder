@@ -37,6 +37,25 @@ volatile boolean alarmIsrWasCalled = false;
 
 SdFat SD;
 
+/*RECORDER*/
+#define BREAKOUT_RESET  9      // VS1053 reset pin (output)
+#define BREAKOUT_CS     10     // VS1053 chip select pin (output)
+#define BREAKOUT_DCS    8      // VS1053 Data/command select pin (output)
+// These are common pins between breakout and shield
+// DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
+#define DREQ 3       // VS1053 Data request, ideally an Interrupt pin
+
+#define RECBUFFSIZE 128  // 64 or 128 bytes.
+#define MWORDS 256
+#define MBYTES (MWORDS * 2)
+
+uint8_t IS_RECORDING = false;
+uint8_t RECORDING_BUFFER[RECBUFFSIZE];
+Adafruit_VS1053_FilePlayer musicPlayer = Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
+
+SdFile RECORDING_FILE;
+
+
 #define RESET_PIN A1
 
 void resetFunc(void)
@@ -71,6 +90,18 @@ void setup()
         resetFunc();
     }
 
+    if (! musicPlayer.begin())
+    {
+        Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+        resetFunc();
+    }
+    
+    if (! musicPlayer.prepareRecordOgg("v44k1q05.img"))
+    {
+         Serial.println("Couldn't load plugin!");
+         resetFunc();    
+    }
+
     totalTasks();
     setNextTask();
     
@@ -90,38 +121,48 @@ void loop()
         alarmIsrWasCalled =  false;
         
         if ((NEXT_START[MONTH_I] != now.month()) | (year != now.year()))
-        {   //deactivate
+        {   
+            // DEACTIVATE
             enterSleep();
+        }
+        else
+        {
+            IS_RECORDING = true;
+            recordingFunc(false);
         }
     }
     else
     {
+        recordingFunc(false);
+        
         DateTime now = RTC.now();
         
-        Serial.print(now.year(), DEC);
-        Serial.print('/');
-        Serial.print(now.month(), DEC);
-        Serial.print('/');
-        Serial.print(now.day(), DEC);
-        Serial.print(" ");
-        Serial.print(now.hour(), DEC);
-        Serial.print(':');
-        Serial.print(now.minute(), DEC);
-        Serial.print(':');
-        Serial.print(now.second(), DEC);
-        Serial.println();
+//        Serial.print(now.year(), DEC);
+//        Serial.print('/');
+//        Serial.print(now.month(), DEC);
+//        Serial.print('/');
+//        Serial.print(now.day(), DEC);
+//        Serial.print(" ");
+//        Serial.print(now.hour(), DEC);
+//        Serial.print(':');
+//        Serial.print(now.minute(), DEC);
+//        Serial.print(':');
+//        Serial.print(now.second(), DEC);
+//        Serial.println();
 
         uint16_t year = NEXT_STOP[YEAR_I] + 2000;
         if ((year == now.year()) & (NEXT_STOP[MONTH_I] == now.month()) & (NEXT_STOP[DAY_I] == now.day()) & (NEXT_STOP[HOUR_I] == now.hour()) & (NEXT_STOP[MINUTE_I] == now.minute()))
         {
             Serial.println("STOP HERE");
+            recordingFunc(true);
             writeDoneTask(1);
             setNextTask();
+            
             delay(1000);
             enterSleep();
         }
         
-        delay(1000);
+//        delay(1000);
     }
 }
 
@@ -331,5 +372,131 @@ void taskToStop(void)
     NEXT_STOP[DAY_I] = day;
     NEXT_STOP[HOUR_I] = hour;
     NEXT_STOP[MINUTE_I] = minute;
+}
+
+void recordingFunc(bool aboutToChange)
+{
+    if (!IS_RECORDING && !aboutToChange)
+    {
+        Serial.println("Begin recording");
+        IS_RECORDING = true;
+
+        strcpy(RECORDING_NAME, "Record00.ogg");
+        for (uint8_t i = 0; i < 100; i++)
+        {
+            RECORDING_NAME[6] = '0' + i/10;
+            RECORDING_NAME[7] = '0' + i%10;
+            // create if does not exist, do not open existing, write, sync after write
+            if (! SD.exists(RECORDING_NAME))
+            {
+                break;
+            }
+        }
+        Serial.print("Recording to "); 
+        Serial.println(RECORDING_NAME);
+
+        if (! RECORDING_FILE.open(RECORDING_NAME, O_CREAT | O_WRITE | O_AT_END))
+        {
+             Serial.println("Couldn't open file to record!");
+             resetFunc();
+        }
+        
+        musicPlayer.startRecordOgg(true); // use microphone (for linein, pass in 'false')
+    }
+    if (IS_RECORDING)
+    {
+        saveRecordedData(IS_RECORDING);
+    }
+    if (IS_RECORDING && aboutToChange)
+    {
+        Serial.println("End recording");
+        musicPlayer.stopRecordOgg();
+        IS_RECORDING = false;
+        saveRecordedData(IS_RECORDING);
+        
+        RECORDING_FILE.close();
+
+        while (SD.card()->isBusy())
+        {
+            Serial.println("SD BUSY");
+        }
+        Serial.println("DONE");
+    }
+}
+
+uint16_t saveRecordedData(boolean isrecord)
+{
+    uint16_t written = 0;
+    // read how many words are waiting for us
+    uint16_t wordswaiting = musicPlayer.recordedWordsWaiting();    
+    // try to process 256 words (512 bytes) at a time, for best speed
+    while (wordswaiting > MWORDS)
+    {
+//        Serial.print("Waiting: "); Serial.println(wordswaiting);
+        // for example 128 bytes x 4 loops = 512 bytes
+        for (int x = 0; x < MBYTES/RECBUFFSIZE; x++)
+        {
+        // fill the buffer!
+            for (uint16_t addr = 0; addr < RECBUFFSIZE; addr+=2)
+            {
+                uint16_t t = musicPlayer.recordedReadWord();
+                //Serial.println(t, HEX);
+                RECORDING_BUFFER[addr] = t >> 8; 
+                RECORDING_BUFFER[addr+1] = t;
+            }
+            if (! RECORDING_FILE.write(RECORDING_BUFFER, RECBUFFSIZE))
+            {
+                Serial.print("Couldn't write "); Serial.println(RECBUFFSIZE); 
+                resetFunc();
+            }
+        }
+        // flush 512 bytes at a time
+        RECORDING_FILE.flush();
+        written += MWORDS;
+        wordswaiting -= MWORDS;
+    }
+    wordswaiting = musicPlayer.recordedWordsWaiting();
+    if (!isrecord)
+    {
+        Serial.print(wordswaiting); Serial.println(" remaining");
+        // wrapping up the recording!
+        uint16_t addr = 0;
+        for (int x=0; x < wordswaiting-1; x++)
+        {
+            // fill the buffer!
+            uint16_t t = musicPlayer.recordedReadWord();
+            RECORDING_BUFFER[addr] = t >> 8; 
+            RECORDING_BUFFER[addr+1] = t;
+            if (addr > RECBUFFSIZE)
+            {
+                if (! RECORDING_FILE.write(RECORDING_BUFFER, RECBUFFSIZE))
+                {
+                    Serial.println("Couldn't write!");
+                    resetFunc();
+                }
+                RECORDING_FILE.flush();
+                addr = 0;
+            }
+        }
+        if (addr != 0)
+        {
+            if (! RECORDING_FILE.write(RECORDING_BUFFER, addr))
+            {
+                Serial.println("Couldn't write!");
+                resetFunc();
+            }
+            RECORDING_FILE.flush();
+            written += addr;
+        }
+        musicPlayer.sciRead(VS1053_SCI_AICTRL3);
+        
+        if (! (musicPlayer.sciRead(VS1053_SCI_AICTRL3) & _BV(2)))
+        {
+            RECORDING_FILE.write(musicPlayer.recordedReadWord() & 0xFF);
+            written++;
+        }
+        RECORDING_FILE.flush();
+    }
+    return written;
 }
 
