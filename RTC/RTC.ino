@@ -65,18 +65,18 @@ void resetFunc(void)
     digitalWrite(RESET_PIN, HIGH);
     delay(200);
     pinMode(RESET_PIN, OUTPUT);
-    //Serial.println("reset");
+//    Serial.println("reset");
     delay(200);
+    digitalWrite(RESET_PIN, LOW);
 }
 
 void setup() 
 {
-    //Serial.begin(9600);
-    //Serial.println("Start communication");
+//    Serial.begin(9600);
 
     if (! RTC.begin())
     {
-        //Serial.println(F("Couldn't find RTC"));
+        Serial.println(F("Couldn't find RTC"));
         resetFunc();
     }
     
@@ -89,19 +89,19 @@ void setup()
 
     if (!SD.begin(CARDCS, SPI_FULL_SPEED))
     {
-        //Serial.println(F("SD failed"));
+//        Serial.println(F("SD failed"));
         resetFunc();
     }
 
     if (! musicPlayer.begin())
     {
-        //Serial.println(F("Couldn't find VS1053"));
+//        Serial.println(F("Couldn't find VS1053"));
         resetFunc();
     }
     
     if (! musicPlayer.prepareRecordOgg("v44k1q05.img"))
     {
-         //Serial.println("Couldn't load plugin!");
+//         Serial.println(F("Couldn't load plugin!"));
          resetFunc();    
     }
 
@@ -265,6 +265,9 @@ void writeDoneTask(uint8_t write_next_task)
             my_file.write(NEXT_TASK);
             my_file.println("");
             NEXT_TASK[0] = ' ';
+
+            DateTime now = RTC.now();
+            my_file.timestamp(T_WRITE, now.year(), now.month(), now.day(), now.hour(), now.minute(), 0); // set write/modification date time
         }
     }
     else
@@ -282,6 +285,8 @@ uint16_t setDoneTasks(void)
         //Serial.println("Done file does not exist.");
         DONE_TASKS = 0;
         writeDoneTask(0);
+        DateTime now = RTC.now();
+        my_file.timestamp(T_CREATE, now.year(), now.month(), now.day(), now.hour(), now.minute(), 0);
     }
     else
     {
@@ -402,6 +407,14 @@ void taskToStop(void)
     NEXT_STOP[MINUTE_I] = minute;
 }
 
+void dateToFile(SdFile& file)
+{
+    DateTime now = RTC.now();
+    file.timestamp(T_CREATE, now.year(), now.month(), now.day(), now.hour(), now.minute(), 0);
+    file.timestamp(T_WRITE, now.year(), now.month(), now.day(), now.hour(), now.minute(), 0); // set write/modification date time
+    file.timestamp(T_ACCESS, now.year(), now.month(), now.day(), now.hour(), now.minute(), 0); // set access date
+}
+
 void recordingFunc(bool aboutToChange)
 {
     if (!IS_RECORDING && !aboutToChange)
@@ -418,6 +431,7 @@ void recordingFunc(bool aboutToChange)
              //Serial.println("Couldn't open file to record!");
              resetFunc();
         }
+        dateToFile(RECORDING_FILE);
         
         IS_RECORDING = true;
         digitalWrite(A0, HIGH);
