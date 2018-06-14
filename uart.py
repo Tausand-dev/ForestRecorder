@@ -22,7 +22,7 @@ class RecorderSerial(Serial):
             self.write(message)
             ans = self.decode(serial.readline())
             try:
-                datetime.strptime(ans, '%y,%m,%d,%H,%M,%S')
+                datetime.strptime(ans, '%d,%m,%y,%H,%M,%S')
                 break
             except:
                 pass
@@ -32,20 +32,21 @@ class RecorderSerial(Serial):
         ans = self.readline()
         ans = self.decode(ans)
         try:
-            return datetime.strptime(ans, '%y,%m,%d,%H,%M,%S')
+            return datetime.strptime(ans, '%d,%m,%y,%H,%M,%S')
         except:
             return ans
 
     def reset(self):
         self.write([2])
 
-serial = RecorderSerial(port = "COM5", timeout = 2)
-serial.readline()
+if __name__ == "__main__":
+    serial = RecorderSerial(port = "COM5", timeout = 2)
+    serial.readline()
 
-serial.setTime(datetime.now())
-current = serial.getTime()
-print(current)
+    serial.setTime(datetime.now())
+    current = serial.getTime()
+    print(current)
 
-# reset arduino
-serial.reset()
-serial.close()
+    # reset arduino
+    serial.reset()
+    serial.close()

@@ -290,11 +290,11 @@ void printTime(void)
 {
     DateTime now = RTC.now();
 
-    Serial.print(now.year() - 2000, DEC);
+    Serial.print(now.day(), DEC);
     Serial.print(",");
     Serial.print(now.month(), DEC);
     Serial.print(",");
-    Serial.print(now.day(), DEC);
+    Serial.print(now.year() - 2000, DEC);
     Serial.print(",");
     Serial.print(now.hour(), DEC);
     Serial.print(",");

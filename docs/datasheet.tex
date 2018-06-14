@@ -1,0 +1,165 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Engineering Calculation Paper
+% LaTeX Template
+% Version 1.0 (20/1/13)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Dmitry Volynkin (dim_voly@yahoo.com.au)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[10pt, letterpaper]{article} % Use A4 paper with a 12pt font size - different paper sizes will require manual recalculation of page margins and border positions
+
+\usepackage{marginnote} % Required for margin notes
+\usepackage{wallpaper} % Required to set each page to have a background
+\usepackage{lastpage} % Required to print the total number of pages
+\usepackage[left = 1.3cm, right = 4.6cm, top = 1.8cm, bottom = 4.0cm, marginparwidth = 3.4cm]{geometry} % Adjust page margins
+\usepackage{amsmath} % Required for equation customization
+\usepackage{amssymb} % Required to include mathematical symbols
+\usepackage{xcolor} % Required to specify colors by name
+
+\usepackage{fancyhdr} % Required to customize headers
+\setlength{\headheight}{80pt} % Increase the size of the header to accommodate meta-information
+\pagestyle{fancy}\fancyhf{} % Use the custom header specified below
+\renewcommand{\headrulewidth}{0pt} % Remove the default horizontal rule under the header
+
+\setlength{\parindent}{0cm} % Remove paragraph indentation
+\newcommand{\tab}{\hspace*{2em}} % Defines a new command for some horizontal space
+
+\newcommand\BackgroundStructure{ % Command to specify the background of each page
+\setlength{\unitlength}{1mm} % Set the unit length to millimeters
+
+\setlength\fboxsep{0mm} % Adjusts the distance between the frameboxes and the borderlines
+\setlength\fboxrule{0.5mm} % Increase the thickness of the border line
+\put(10, 10){\fcolorbox{black}{orange!10}{\framebox(165, 230){}}} % Main content box
+\put(175, 10){\fcolorbox{black}{orange!25}{\framebox(27, 230){}}} % Margin box
+\put(10, 245){\fcolorbox{black}{white!10}{\framebox(192, 20){}}} % Header box
+\put(135, 250){\includegraphics[height=10mm, keepaspectratio]{logo}} % Logo box - maximum height/width: 
+}
+
+%----------------------------------------------------------------------------------------
+%	HEADER INFORMATION
+%----------------------------------------------------------------------------------------
+
+\fancyhead[L]{\begin{tabular}{l r | l r} % The header is a table with 4 columns
+\textbf{Project} & Forest Recorder & \textbf{Page} & \thepage/\pageref{LastPage} \\ % Project name and page count
+\textbf{Version} & FR-001 & \textbf{Updated} & 14/06/2018 \\ % Job number and last updated date
+\textbf{Author} & Juan Barbosa & \textbf{Reviewed} &  \\ % Version and reviewed date
+& & \textbf{Reviewer} &  \\ % Designer and reviewer
+\end{tabular}}
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\AddToShipoutPicture{\BackgroundStructure} % Set the background of each page to that specified above in the header information section
+
+%----------------------------------------------------------------------------------------
+%	DOCUMENT CONTENT
+%----------------------------------------------------------------------------------------
+
+\section{Settings}
+	Internal implementation of the arduino code requires the following libraries: \verb|SPI|, \verb|Adafruit_VS1053|, \verb|SdFat|, \verb|RTClibExtended| which are arduino only. The following AVR libraries are used as well: \verb|avr/sleep|, \verb|avr/power|, \verb|avr/wdt|.
+	
+	\subsection{RTC DS3231}
+		Connection with the real time clock is made using the I$^2$C protocol. Wires go as follows:
+		\begin{itemize}
+			\item \verb|A4 (PC4)| $\rightarrow$ \verb|SDA|
+			\item \verb|A5 (PC5)| $\rightarrow$ \verb|SDL|
+			\item \verb|D2 (PD2)| $\rightarrow$ \verb|SWQ|
+		\end{itemize}
+	
+		The last of the connections is used for the alarm wake up, since the arduino is on \verb|POWER_DOWN_MODE| signal needs to be set on one of the external interrupt pins, in this case \verb|INT0|.
+	
+	\subsection{VS1053 breakout}
+		The board uses SPI communication, connections are port to port. There are 3 chip select cables, one for the board (\verb|CS|), one for the board memory (\verb|XDCS|) and the SD select (\verb|SDCS|).
+		\begin{itemize}
+			\item \verb|D5 (PD5)| $\rightarrow$ \verb|DREQ|
+			\item \verb|D8 (PB0)| $\rightarrow$ \verb|XDCS|
+			\item \verb|D9 (PB1)| $\rightarrow$ \verb|RST|
+			\item \verb|D10 (PB2)| $\rightarrow$ \verb|CS|
+			\item \verb|D11 (PB3)| $\rightarrow$ \verb|MOSI|
+			\item \verb|D12 (PB4)| $\rightarrow$ \verb|MISO|
+			\item \verb|D13 (PB5)| $\rightarrow$ \verb|SCLK|
+		\end{itemize}
+	
+	\subsection{SD}
+		Connection is made using the breakout SPI ports which were listed before. Chip Select requires a wire from \verb|D4 (PD4)| to \verb|SDCS|.\\
+		
+		MicroSD card \textbf{must} be \verb|FAT32| formatted.
+	
+	\subsection{UART}
+		% \marginnote{All units are \\ \textbf{[kN, mm]}}
+		Communication with the Arduino is made through UART protocol. Settings are set as follows:
+		\begin{itemize}
+			\item \verb|baudrate = 9600|
+			\item \verb|bytesize = EIGHTBITS|
+			\item \verb|parity = PARITY_NONE|
+			\item \verb|stopbits = STOPBITS_ONE|
+		\end{itemize}
+
+\newpage
+\section{Scheduling}
+	Recording activity is set on a file called \verb|schedule.dat| which has the following structure:
+	\begin{center}
+		\verb|d1-m1-y1-H1-M1; d2-m2-y2-H2-M2\n|
+	\end{center}
+	
+	Before the semicolon are the starting times, after it, the stop times. Each time descriptor is made as a 2 digit, zero padded number. That is day 4 must be placed as \verb|04|.
+	\begin{itemize}
+		\item \verb|d|: day
+		\item \verb|m|: month
+		\item \verb|y|: year
+		\item \verb|H|: hour
+		\item \verb|M|: minute
+	\end{itemize}
+	
+	Each line \textbf{must} be 32 bytes.
+
+\section{Time setting}
+	To set the current time to the RTC, there must be a UART connection active. On a computer as soon as a communication port is open, and connection is establish with the Arduino, this one automatically restarts. There is a 2 second window in which the micro will wait for incoming data from UART, this time starts as soon as the Arduino writes \verb|Connection\r\n|. If no data is received, it will continue to load its recording protocol. If data is received it will start a UART only mode, which only ends with a hardware restart.\\
+	
+	There are 3 functions implemented: \verb|setTime|, \verb|getTime| and \verb|reset|.
+	
+	\subsection{setTime (0x00)}
+		\begin{itemize}
+			\item Message start: \verb|0x00|
+			\item Message longitude: 13 bytes
+			\item Message: [0x00, 'd', 'd', 'm', 'm', 'y', 'y', 'H', 'H', 'M', 'M', 'S', 'S'] \textbf{(zero padded)}
+		\end{itemize}
+		For example on ASCII datetime 14/06/2018 16:50:00 looks like this:
+		\begin{center}
+			[0, '1', '4', '0', '6', '1', '8', '1', '6', '5', '0', '0', '0']
+		\end{center}
+		Or using hex notation:
+		\begin{center}
+			[0x00, 0x31, 0x34, 0x30, 0x36, 0x31, 0x38, 0x31, 0x36, 0x35, 0x30, 0x30, 0x30]
+		\end{center}
+	\begin{itemize}
+		\item Answer: \verb|getTime|
+	\end{itemize}
+	\subsection{getTime (0x01)}
+		\begin{itemize}
+			\item Message start: \verb|0x01|
+			\item Answer: ``dd,mm,yy,HH,MM,SS" \textbf{(not zero padded)}
+			
+			For example datetime 14/06/2018 16:50:00 looks like this:
+			\begin{center}
+				\verb|"14,6,18,16,50,0\r\n"|
+			\end{center}
+		\end{itemize}
+	\subsection{reset (0x02)}
+		\begin{itemize}
+			\item Message start: \verb|0x02|
+		\end{itemize}
+\end{document}
