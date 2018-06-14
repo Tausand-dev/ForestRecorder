@@ -36,16 +36,16 @@ class RecorderSerial(Serial):
         except:
             return ans
 
+    def reset(self):
+        self.write([2])
+
 serial = RecorderSerial(port = "COM5", timeout = 2)
 serial.readline()
-
-current = serial.getTime()
-print(current)
 
 serial.setTime(datetime.now())
 current = serial.getTime()
 print(current)
 
-serial.write([2])
-
+# reset arduino
+serial.reset()
 serial.close()

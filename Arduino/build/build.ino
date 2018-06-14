@@ -80,17 +80,19 @@ void setup()
 //        Serial.println(F("Couldn't find RTC"));
         resetFunc();
     }
+
+//    RTC.adjust(DateTime(2018, 6, 14, 14, 30, 0));
         
     clearAlarms();
 
-    Serial.println("Conection");
+    Serial.println("Connection");
     for(uint8_t i = 0; i < 10; i++)
     {
         if (Serial.available() > 0)
         {
             uartFunc();
         }
-        delay(500);
+        delay(100);
     }
 
     if (!SD.begin(CARDCS, SPI_FULL_SPEED))
@@ -429,8 +431,17 @@ void setNextTask(void)
         }
         my_file.close();
     
-        taskToAlarm();
+        taskToAlarm();        
         taskToStop();
+
+        DateTime task = DateTime(NEXT_START[YEAR_I] + 2000, NEXT_START[MONTH_I], NEXT_START[DAY_I], NEXT_START[HOUR_I], NEXT_START[MINUTE_I], 0);
+        DateTime now = RTC.now();
+        if (now.unixtime() > task.unixtime())
+        {
+//            Serial.println("Old task");
+            writeDoneTask(true);
+            setNextTask();
+        }
     }
     else
     {
