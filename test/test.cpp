@@ -14,7 +14,7 @@ ISR(USART_RX_vect)
   serial.toBuffer();
 }
 
-//ISR(__vector_default){}
+ISR(__vector_default){}
 
 int main(void)
 {
@@ -23,14 +23,12 @@ int main(void)
 
   sei();
 
-  
   if (! RTC.begin())
   {
       serial.println("Couldn't find RTC");
   }
 
   DateTime now = RTC.now();
-  
 
   return 0;
 }

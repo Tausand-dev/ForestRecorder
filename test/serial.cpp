@@ -2,6 +2,8 @@
 #include <string.h>
 #include "serial.h"
 
+uint8_t UART::last_buffer = 0;
+
 UART::UART(unsigned long int baud)
 {
   baudrate = baud;
@@ -38,7 +40,7 @@ void UART::println(const char *text)
   print("\n");
 }
 
-char UART::toBuffer(void)
+void UART::toBuffer(void)
 {
   buffer[last_buffer] = getChar();
   last_buffer += 1;
