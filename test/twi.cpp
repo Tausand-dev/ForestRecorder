@@ -63,20 +63,8 @@ void twi_init(void)
 {
   // initialize state
   twi_state = TWI_READY;
-
-  #if defined(__AVR_ATmega168__) || defined(__AVR_ATmega8__) || defined(__AVR_ATmega328P__)
-    // activate internal pull-ups for twi
-    // as per note from atmega8 manual pg167
-    sbi(PORTC, 4);
-    sbi(PORTC, 5);
-  #else
-    // activate internal pull-ups for twi
-    // as per note from atmega128 manual pg204
-    sbi(PORTD, 0);
-    sbi(PORTD, 1);
-  #endif
-
-  // initialize twi prescaler and bit rate
+  sbi(PORTC, 4);
+  sbi(PORTC, 5);
   cbi(TWSR, TWPS0);
   cbi(TWSR, TWPS1);
   TWBR = ((CPU_FREQ / TWI_FREQ) - 16) / 2;

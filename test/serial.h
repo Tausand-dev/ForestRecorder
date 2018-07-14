@@ -5,11 +5,17 @@ class UART
     char buffer[32];
     static uint8_t last_buffer;
 
-    UART(unsigned long int baud);
+    UART(unsigned long int);
     void setUART(void);
-    void sendChar(char tosend);
-    void print(const char *text);
-    void println(const char *text);
+    void sendChar(char);
+    void print(const char *);
+    void println(const char *);
+
+    void write(uint8_t);
+    void write(uint16_t);
+    void write(uint32_t);
+    void write(long int);
+
     void toBuffer(void);
     char read(void);
     uint8_t available(void);

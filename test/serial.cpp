@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <string.h>
+#include <stdlib.h>
 #include "serial.h"
 
 uint8_t UART::last_buffer = 0;
@@ -38,6 +39,34 @@ void UART::println(const char *text)
 {
   print(text);
   print("\n");
+}
+
+void UART::write(uint8_t val)
+{
+  char buffer[4];
+  itoa(val, buffer, 10);
+  println(buffer);
+}
+
+void UART::write(uint16_t val)
+{
+  char buffer[6];
+  itoa(val, buffer, 10);
+  println(buffer);
+}
+
+void UART::write(uint32_t val)
+{
+  char buffer[11];
+  ltoa(val, buffer, 10);
+  println(buffer);
+}
+
+void UART::write(long int val)
+{
+  char buffer[11];
+  ltoa(val, buffer, 10);
+  println(buffer);
 }
 
 void UART::toBuffer(void)
