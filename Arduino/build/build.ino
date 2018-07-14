@@ -77,7 +77,7 @@ void setup()
 
     if (! RTC.begin())
     {
-//        Serial.println(F("Couldn't find RTC"));
+        Serial.println(F("Couldn't find RTC"));
         resetFunc();
     }
 
@@ -97,19 +97,19 @@ void setup()
 
     if (!SD.begin(CARDCS, SPI_FULL_SPEED))
     {
-//        Serial.println(F("SD failed"));
+        Serial.println(F("SD failed"));
         resetFunc();
     }
 
     if (! musicPlayer.begin())
     {
-//        Serial.println(F("Couldn't find VS1053"));
+        Serial.println(F("Couldn't find VS1053"));
         resetFunc();
     }
     
     if (! musicPlayer.prepareRecordOgg("v44k1q05.img"))
     {
-//         Serial.println(F("Couldn't load plugin!"));
+         Serial.println(F("Couldn't load plugin!"));
          resetFunc();    
     }
 
@@ -345,7 +345,7 @@ uint16_t totalTasks(void)
     SdFile my_file;
     if(! my_file.open("schedule.dat", O_READ))
     {
-//        Serial.println(F("Schedule file error"));
+        Serial.println(F("Schedule file error"));
         resetFunc();
     }
     else
@@ -412,7 +412,7 @@ void setNextTask(void)
         SdFile my_file;
         if(! my_file.open("schedule.dat", O_READ))
         {
-//            Serial.println(F("Schedule file error"));
+            Serial.println(F("Schedule file error"));
             resetFunc();
         }
         else
@@ -538,14 +538,14 @@ void recordingFunc(bool aboutToChange)
         
         if (! RECORDING_FILE.open(recording_name, O_CREAT | O_WRITE | O_AT_END))
         {
-             //Serial.println("Couldn't open file to record!");
+             Serial.println("Couldn't open file to record!");
              resetFunc();
         }
         dateToFile(RECORDING_FILE);
         
         IS_RECORDING = true;
         digitalWrite(A0, HIGH);
-        musicPlayer.startRecordOgg(true); // use microphone (for linein, pass in 'false')
+        musicPlayer.startRecordOgg(false); // use microphone (for linein, pass in 'false')
     }
     if (IS_RECORDING)
     {
@@ -580,7 +580,7 @@ uint16_t saveRecordedData(boolean isrecord)
             }
             if (! RECORDING_FILE.write(RECORDING_BUFFER, RECBUFFSIZE))
             {
-                //Serial.print("Couldn't write "); //Serial.println(RECBUFFSIZE); 
+                Serial.print("Couldn't write 583"); //Serial.println(RECBUFFSIZE); 
                 resetFunc();
             }
         }
@@ -604,7 +604,7 @@ uint16_t saveRecordedData(boolean isrecord)
             {
                 if (! RECORDING_FILE.write(RECORDING_BUFFER, RECBUFFSIZE))
                 {
-                    //Serial.println("Couldn't write!");
+                    Serial.println("Couldn't write 607");
                     resetFunc();
                 }
                 RECORDING_FILE.flush();
@@ -615,7 +615,7 @@ uint16_t saveRecordedData(boolean isrecord)
         {
             if (! RECORDING_FILE.write(RECORDING_BUFFER, addr))
             {
-                //Serial.println("Couldn't write!");
+                Serial.println("Couldn't write 618");
                 resetFunc();
             }
             RECORDING_FILE.flush();
