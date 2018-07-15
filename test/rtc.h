@@ -17,8 +17,6 @@
 #include <avr/io.h>
 #include "twi.h"
 
-#define DS1307_SLAVE_ADDR 0b11010000
-
 /** Time structure
  *
  * Both 24-hour and 12-hour time is stored, and is always updated when rtc_get_time is called.
@@ -55,12 +53,7 @@ extern struct tm _tm;
 // Initialize the RTC and autodetect type (DS1307 or DS3231)
 void rtc_init(void);
 
-// Autodetection
-bool rtc_is_ds1307(void);
 bool rtc_is_ds3231(void);
-
-void rtc_set_ds1307(void);
-void rtc_set_ds3231(void);
 
 // Get/set time
 // Gets the time: Supports both 24-hour and 12-hour mode

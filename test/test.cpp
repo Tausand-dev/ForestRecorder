@@ -28,10 +28,6 @@ int main(void)
 
   twi_init_master();
   rtc_init();
-  if (rtc_is_ds1307())
-		serial.println("DS1307");
-	else
-		serial.println("DS3231");
 
   struct tm* t = NULL;
   t->sec = 1;      // 0 to 59
