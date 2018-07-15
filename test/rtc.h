@@ -40,6 +40,8 @@
 //Other
 #define DYDT 6                     //Day/Date flag bit in alarm Day/Date registers
 
+uint32_t get32From8Bit(uint8_t m1, uint8_t m2, uint8_t m3, uint8_t m4);
+
 // Simple general-purpose date/time class (no TZ / DST / leap second handling!)
 class DateTime
 {

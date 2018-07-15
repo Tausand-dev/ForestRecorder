@@ -2,6 +2,11 @@
 #include "twi.h"
 #include <avr/pgmspace.h>
 
+uint32_t get32From8Bit(uint8_t m1, uint8_t m2, uint8_t m3, uint8_t m4)
+{
+  return m1 | (uint16_t) m2 << 8 | (uint32_t) m3 << 16 | (uint32_t) m4 << 24;
+}
+
 // Macro to deal with the difference in I2C write functions from old and new Arduino versions.
 static uint8_t read_i2c_register(uint8_t addr, uint8_t reg) {
   twi_begin_transmission(addr);

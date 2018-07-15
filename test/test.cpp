@@ -7,8 +7,7 @@
 #include "serial.h"
 #include "rtc.h"
 #include "twi.h"
-
-#define BAUDRATE 57600
+#include "test.h"
 
 RTC_DS3231 RTC;
 UART serial(BAUDRATE);
@@ -20,25 +19,41 @@ ISR(USART_RX_vect)
   serial.toBuffer();
 }
 
+void serialHandler(void)
+{
+  uint8_t func;
+  uint32_t incoming;
+
+  if (serial.available())
+  {
+    func = serial.read();
+    if((func == SET_TIME) & (serial.available() >= 4))
+    {
+      incoming = get32From8Bit(serial.read(), serial.read(), serial.read(), serial.read());
+      DateTime time(incoming);
+      RTC.adjust(time);
+    }
+    else if (func == GET_TIME)
+    {
+      DateTime now = RTC.now();
+      serial.write(now.unixtime());
+      serial.println("");
+    }
+  }
+}
+
 int main(void)
 {
   serial.setUART();
-  serial.println("Hello World!");
+  serial.println("Connection");
 
   sei();
 
   RTC.begin();
 
-  DateTime time(2018, 8, 13);
-
-  RTC.adjust(time);
-
   while(1)
   {
-    DateTime now = RTC.now();
-    serial.write(now.unixtime());
-    serial.println("");
-    _delay_ms(1000);
+    serialHandler();
   }
 
   return 0;
