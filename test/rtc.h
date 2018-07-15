@@ -1,95 +1,99 @@
-/*
- * DS RTC Library: DS1307 and DS3231 driver library
- * (C) 2011 Akafugu Corporation
- *
- * This program is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2 of the License, or (at your option) any later
- * version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
- * PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- */
+// Code by JeeLabs http://news.jeelabs.org/code/
+// Extended by Fabio Cuomo https://github.com/FabioCuomo/FabioCuomo-DS3231/
+// Released to the public domain! Enjoy!
 
-#include <stdbool.h>
-#include <avr/io.h>
-#include "twi.h"
+#include <stdlib.h>
+#include <string.h>
+#include <inttypes.h>
 
-/** Time structure
- *
- * Both 24-hour and 12-hour time is stored, and is always updated when rtc_get_time is called.
- *
- * When setting time and alarm, 24-hour mode is always used.
- *
- * If you run your clock in 12-hour mode:
- * - set time hour to store in twelveHour and set am to true or false.
- * - call rtc_12h_translate (this will put the correct value in hour, so you don't have to
- *   calculate it yourself.
- * - call rtc_set_alarm or rtc_set_clock
- *
- * Note that rtc_set_clock_s, rtc_set_alarm_s, rtc_get_time_s, rtc_set_alarm_s always operate in 24-hour mode
- * and translation has to be done manually (you can call rtc_24h_to_12h to perform the calculation)
- *
- */
-struct tm {
-	int sec;      // 0 to 59
-	int min;      // 0 to 59
-	int hour;     // 0 to 23
-	int mday;     // 1 to 31
-	int mon;      // 1 to 12
-	int year;     // year-99
-	int wday;     // 1-7
+#define DS3231_ADDRESS               0x68
+#define DS3231_CONTROL               0x0E
+#define DS3231_STATUSREG             0x0F
+#define DS3231_TEMP                  0x11
 
-    // 12-hour clock data
-    bool am; // true for AM, false for PM
-    int twelveHour; // 12 hour clock time
+#define SECONDS_PER_DAY              86400L
+
+#define SECONDS_FROM_1970_TO_2000    946684800
+
+//Control register bits
+#define A1IE 0
+#define A2IE 1
+
+//Alarm mask bits
+#define A1M1 7
+#define A1M2 7
+#define A1M3 7
+#define A1M4 7
+#define A2M2 7
+#define A2M3 7
+#define A2M4 7
+
+//DS3232 Register Addresses
+#define ALM1_SECONDS 0x07
+#define ALM1_MINUTES 0x08
+#define ALM1_HOURS 0x09
+#define ALM1_DAYDATE 0x0A
+#define ALM2_MINUTES 0x0B
+#define ALM2_HOURS 0x0C
+#define ALM2_DAYDATE 0x0D
+
+//Other
+#define DYDT 6                     //Day/Date flag bit in alarm Day/Date registers
+
+// Simple general-purpose date/time class (no TZ / DST / leap second handling!)
+class DateTime
+{
+  public:
+    DateTime (uint32_t t =0);
+    DateTime (uint16_t year, uint8_t month, uint8_t day,
+                uint8_t hour =0, uint8_t min =0, uint8_t sec =0);
+    uint16_t year() const       { return 2000 + yOff; }
+    uint8_t month() const       { return m; }
+    uint8_t day() const         { return d; }
+    uint8_t hour() const        { return hh; }
+    uint8_t minute() const      { return mm; }
+    uint8_t second() const      { return ss; }
+
+    // 32-bit times as seconds since 1/1/1970
+    uint32_t unixtime(void) const;
+
+  protected:
+    uint8_t yOff, m, d, hh, mm, ss;
 };
 
-// statically allocated
-extern struct tm _tm;
+// RTC based on the DS3231 chip connected via I2C and the Wire library
+enum Ds3231SqwPinMode { DS3231_OFF = 0x01, DS3231_SquareWave1Hz = 0x00, DS3231_SquareWave1kHz = 0x08, DS3231_SquareWave4kHz = 0x10, DS3231_SquareWave8kHz = 0x18 };
 
-// Initialize the RTC and autodetect type (DS1307 or DS3231)
-void rtc_init(void);
+//Alarm masks
+enum Ds3231_ALARM_TYPES_t {
+    ALM1_EVERY_SECOND = 0x0F,
+    ALM1_MATCH_SECONDS = 0x0E,
+    ALM1_MATCH_MINUTES = 0x0C,     //match minutes *and* seconds
+    ALM1_MATCH_HOURS = 0x08,       //match hours *and* minutes, seconds
+    ALM1_MATCH_DATE = 0x00,        //match date *and* hours, minutes, seconds
+    ALM1_MATCH_DAY = 0x10,         //match day *and* hours, minutes, seconds
 
-bool rtc_is_ds3231(void);
+    ALM2_EVERY_MINUTE = 0x8E,
+    ALM2_MATCH_MINUTES = 0x8C,     //match minutes
+    ALM2_MATCH_HOURS = 0x88,       //match hours *and* minutes
+    ALM2_MATCH_DATE = 0x80,        //match date *and* hours, minutes
+    ALM2_MATCH_DAY = 0x90,         //match day *and* hours, minutes
+};
 
-// Get/set time
-// Gets the time: Supports both 24-hour and 12-hour mode
-struct tm* rtc_get_time(void);
-// Gets the time: 24-hour mode only
-void rtc_get_time_s(uint8_t* hour, uint8_t* min, uint8_t* sec);
-// Sets the time: Supports both 24-hour and 12-hour mode
-void rtc_set_time(struct tm* tm_);
-// Sets the time: Supports 12-hour mode only
-void rtc_set_time_s(uint8_t hour, uint8_t min, uint8_t sec);
-
-// start/stop clock running (DS1307 only)
-void rtc_run_clock(bool run);
-bool rtc_is_clock_running(void);
-
-// Read Temperature (DS3231 only)
-void  ds3231_get_temp_int(int8_t* i, uint8_t* f);
-void rtc_force_temp_conversion(uint8_t block);
-
-// SRAM read/write DS1307 only
-void rtc_get_sram(uint8_t* data);
-void rtc_set_sram(uint8_t *data);
-uint8_t rtc_get_sram_byte(uint8_t offset);
-void rtc_set_sram_byte(uint8_t b, uint8_t offset);
-
-  // Auxillary functions
-enum RTC_SQW_FREQ { FREQ_1 = 0, FREQ_1024, FREQ_4096, FREQ_8192 };
-
-void rtc_SQW_enable(bool enable);
-void rtc_SQW_set_freq(enum RTC_SQW_FREQ freq);
-void rtc_osc32kHz_enable(bool enable);
-
-// Alarm functionality
-void rtc_reset_alarm(void);
-void rtc_set_alarm(struct tm* tm_);
-void rtc_set_alarm_s(uint8_t hour, uint8_t min, uint8_t sec);
-struct tm* rtc_get_alarm(void);
-void rtc_get_alarm_s(uint8_t* hour, uint8_t* min, uint8_t* sec);
-bool rtc_check_alarm(void);
+class RTC_DS3231
+{
+  public:
+    bool begin(void);
+    static void adjust(const DateTime& dt);
+    bool lostPower(void);
+    static DateTime now();
+    static Ds3231SqwPinMode readSqwPinMode();
+    static void writeSqwPinMode(Ds3231SqwPinMode mode);
+    float getTemp();
+    void setAlarm(Ds3231_ALARM_TYPES_t alarmType, uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t daydate);
+    void setAlarm(Ds3231_ALARM_TYPES_t alarmType, uint8_t minutes, uint8_t hours, uint8_t daydate);
+    void armAlarm(uint8_t alarmNumber, bool armed);
+    void alarmInterrupt(uint8_t alarmNumber, bool alarmEnabled);
+    bool isArmed(uint8_t alarmNumber);
+    void clearAlarm(uint8_t alarmNumber);
+};

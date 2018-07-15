@@ -45,28 +45,28 @@ void UART::write(uint8_t val)
 {
   char buffer[4];
   itoa(val, buffer, 10);
-  println(buffer);
+  print(buffer);
 }
 
 void UART::write(uint16_t val)
 {
   char buffer[6];
   itoa(val, buffer, 10);
-  println(buffer);
+  print(buffer);
 }
 
 void UART::write(uint32_t val)
 {
   char buffer[11];
   ltoa(val, buffer, 10);
-  println(buffer);
+  print(buffer);
 }
 
 void UART::write(long int val)
 {
   char buffer[11];
   ltoa(val, buffer, 10);
-  println(buffer);
+  print(buffer);
 }
 
 void UART::toBuffer(void)

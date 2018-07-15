@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
+#include <util/delay.h>
 #include <string.h>
 
 #include "serial.h"
@@ -9,7 +10,7 @@
 
 #define BAUDRATE 57600
 
-// RTC_DS3231 RTC;
+RTC_DS3231 RTC;
 UART serial(BAUDRATE);
 
 ISR(__vector_default){}
@@ -26,52 +27,19 @@ int main(void)
 
   sei();
 
-  twi_init_master();
-  rtc_init();
+  RTC.begin();
 
-  struct tm* t = NULL;
-  t->sec = 1;      // 0 to 59
-  t->min = 2;      // 0 to 59
-  t->hour = 3;     // 0 to 23
-  t->mday = 4;     // 1 to 31
-  t->mon = 5;      // 1 to 12
-  t->year = 6;     // year-99
+  DateTime time(2018, 8, 13);
 
-  rtc_set_time(t);
+  RTC.adjust(time);
 
-  t = rtc_get_time();
-
-  uint8_t val = t->sec;
-  serial.write(val);
-
-  val = t->min;
-  serial.write(val);
-
-  val = t->hour;
-  serial.write(val);
-
-  val = t->mday;
-  serial.write(val);
-
-  val = t->mon;
-  serial.write(val);
-
-  val = t->year;
-  serial.write(val);
-
-  // if (! RTC.begin())
-  // {
-  //     serial.println("Couldn't find RTC");
-  // }
-
-  // DateTime time(2018, 8, 13);
-  //
-  // RTC.adjust(time);
-  //
-  // DateTime now = RTC.now();
-  //
-  // serial.write(time.unixtime());
-  // serial.write(now.unixtime());
+  while(1)
+  {
+    DateTime now = RTC.now();
+    serial.write(now.unixtime());
+    serial.println("");
+    _delay_ms(1000);
+  }
 
   return 0;
 }
