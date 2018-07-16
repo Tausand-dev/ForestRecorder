@@ -55,6 +55,13 @@ void UART::write(uint16_t val)
   print(buffer);
 }
 
+void UART::write(int val)
+{
+  char buffer[6];
+  itoa(val, buffer, 10);
+  print(buffer);
+}
+
 void UART::write(uint32_t val)
 {
   char buffer[11];
@@ -75,7 +82,7 @@ void UART::toBuffer(void)
   last_buffer += 1;
 }
 
-char UART::read(void)
+unsigned char UART::read(void)
 {
   uint8_t i;
   char temp = buffer[0];
@@ -100,7 +107,7 @@ uint8_t UART::available(void)
   return last_buffer;
 }
 
-char UART::getChar(void)
+unsigned char UART::getChar(void)
 {
   while (!(UCSR0A & _BV(RXC0)));
   return (char) UDR0;

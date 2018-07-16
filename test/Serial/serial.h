@@ -14,12 +14,13 @@ class UART
     void write(uint8_t);
     void write(uint16_t);
     void write(uint32_t);
+    void write(int);
     void write(long int);
 
     void toBuffer(void);
-    char read(void);
+    unsigned char read(void);
     uint8_t available(void);
 
   private:
-    char getChar(void);
+    unsigned char getChar(void);
 };
