@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 #include "../SPI/SPI.h"
+#include "../SD/ff.h"
 
 /*
 #include <BlockDriver.h>
@@ -90,24 +91,9 @@
 
 #define VS1053_DATABUFFERLEN 32
 
-// const unsigned short plugin[] = { /* Compressed plugin */
-//   0x0007,0x0001, /*copy 1*/
-//   0x8050,
-//   0x0006,0x0042, /*copy 66*/
-//   0x0000,0x1790,0xf400,0x5400,0x0000,0x0a10,0xf400,0x5600,
-//   0xb080,0x0024,0x0007,0x9257,0x3f00,0x0024,0x0030,0x0297,
-//   0x3f00,0x0024,0x0000,0x004d,0x0014,0x958f,0x0000,0x1b4e,
-//   0x280f,0xe100,0x0006,0x2016,0x2a00,0x17ce,0x3e12,0xb817,
-//   0x3e14,0xf812,0x3e01,0xb811,0x0007,0x9717,0x0020,0xffd2,
-//   0x0030,0x11d1,0x3111,0x8024,0x3704,0xc024,0x3b81,0x8024,
-//   0x3101,0x8024,0x3b81,0x8024,0x3f04,0xc024,0x2808,0x4800,
-//   0x36f1,0x9811,0x2814,0x9c91,0x0000,0x004d,0x2814,0x9940,
-//   0x003f,0x0013,
-//   0x000a,0x0001,
-//   0x0050,
-// };
-
-
+#define VS1053_RECBUFFSIZE 128  // 64 or 128 bytes.
+#define VS1053_MWORDS 256
+#define VS1053_MBYTES 512
 
 class VS1053
 {
@@ -124,18 +110,19 @@ class VS1053
 
     // uint16_t loadPlugin(char *fn);
     void loadPlugin(void);
+    void startRecord(const char *name, bool mic);
+    uint8_t saveRecordedData(void);
+    uint8_t bufferToSD(uint16_t words);
 
-    void prepareRecord(void);
-    void startRecord(bool mic);
-
-    bool prepareRecordOgg(char *plugin);
-    void startRecordOgg(bool mic);
-    void stopRecordOgg(void);
     uint16_t recordedWordsWaiting(void);
     uint16_t recordedReadWord(void);
 
   private:
     SPI spi;
+    UINT bw;
+    FIL *fp;
+    const char *file_name;
+    uint8_t buffer[VS1053_RECBUFFSIZE];
 };
 
 #endif

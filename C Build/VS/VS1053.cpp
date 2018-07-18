@@ -13,37 +13,10 @@
  ****************************************************/
 
 #include <avr/io.h>
+#include <stdlib.h>
 #include <util/delay.h>
 #include "VS1053.h"
 #include "../SPI/SPI.h"
-
-// void VS1053::loadPlugin(void)
-// {
-  // unsigned int i = 0;
-  // while (i < (sizeof(plugin) / sizeof(plugin[0])))
-  // {
-  //   unsigned short addr, n, val;
-  //   addr = plugin[i++];
-  //   n = plugin[i++];
-  //   if (n & 0x8000U)
-  //   { /* RLE run, replicate n samples */
-  //     n &= 0x7FFF;
-  //     val = plugin[i++];
-  //     while (n--)
-  //     {
-  //       sciWrite(addr, val);
-  //     }
-  //   }
-  //   else
-  //   {
-  //     while (n--)
-  //     {
-  //       val = plugin[i++];
-  //       sciWrite(addr, val);
-  //     }
-  //   }
-  // }
-// }
 
 bool VS1053::readyForData(void)
 {
@@ -85,6 +58,7 @@ uint8_t VS1053::begin(void)
   digitalWrite(&DCS_PORT, DCS, 1);
 
   spi.begin();
+  fp = (FIL *) malloc(sizeof (FIL));
   reset();
 
   uint8_t val = (sciRead(VS1053_REG_STATUS) >> 4) & 0x0F;
@@ -137,7 +111,7 @@ void VS1053::loadPlugin(void)
   sciWrite(VS1053_REG_WRAM, 0x040e);
 }
 
-void VS1053::startRecord(bool mic)
+void VS1053::startRecord(const char *name, bool mic)
 {
   softReset();
   while(! readyForData());
@@ -157,8 +131,87 @@ void VS1053::startRecord(bool mic)
 
   sciWrite(VS1053_REG_MODE, config);
   while (! readyForData() );
-
   loadPlugin();
+
+  file_name = name;
+}
+
+uint8_t VS1053::bufferToSD(uint16_t last_position)
+{
+  if (f_open(fp, file_name, FA_WRITE) == FR_OK)
+  {
+    f_write(fp, buffer, last_position, &bw);	// Write data to the file
+    f_close(fp);// Close the file
+    return 1;
+  }
+  return 0;
+}
+
+uint8_t VS1053::saveRecordedData(void)
+{
+    uint8_t x;
+    uint16_t written, waiting = recordedWordsWaiting(); // read how many words are waiting
+    while (waiting >= VS1053_MWORDS) // try to process 256 words (512 bytes) at a time, for best speed
+    {
+        for (x = 0; x < VS1053_MBYTES / VS1053_RECBUFFSIZE; x++) // for example 128 bytes x 4 loops = 512 bytes
+        {
+            for (uint16_t addr = 0; addr < VS1053_RECBUFFSIZE; addr += 2)
+            {
+                uint16_t t = recordedReadWord();
+                buffer[addr] = t >> 8;
+                buffer[addr + 1] = t;
+            }
+            if(! bufferToSD(VS1053_MWORDS))
+            {
+              return 0;
+            }
+        }
+        written += VS1053_MWORDS;
+        waiting -= VS1053_MWORDS;
+    }
+    return 1;
+    // wordswaiting = musicPlayer.recordedWordsWaiting();
+    // if (!isrecord)
+    // {
+    //     // wrapping up the recording!
+    //     uint16_t addr = 0;
+    //     for (int x=0; x < wordswaiting-1; x++)
+    //     {
+    //         // fill the buffer!
+    //         uint16_t t = musicPlayer.recordedReadWord();
+    //         RECORDING_BUFFER[addr] = t >> 8;
+    //         RECORDING_BUFFER[addr+1] = t;
+    //         if (addr > RECBUFFSIZE)
+    //         {
+    //             if (! RECORDING_FILE.write(RECORDING_BUFFER, RECBUFFSIZE))
+    //             {
+    //                 Serial.println("Couldn't write 607");
+    //                 resetFunc();
+    //             }
+    //             RECORDING_FILE.flush();
+    //             addr = 0;
+    //         }
+    //     }
+    //     if (addr != 0)
+    //     {
+    //         if (! RECORDING_FILE.write(RECORDING_BUFFER, addr))
+    //         {
+    //             Serial.println("Couldn't write 618");
+    //             resetFunc();
+    //         }
+    //         RECORDING_FILE.flush();
+    //         written += addr;
+    //     }
+    //     musicPlayer.sciRead(VS1053_SCI_AICTRL3);
+    //
+    //     if (! (musicPlayer.sciRead(VS1053_SCI_AICTRL3) & _BV(2)))
+    //     {
+    //         RECORDING_FILE.write(musicPlayer.recordedReadWord() & 0xFF);
+    //         written++;
+    //     }
+    //     RECORDING_FILE.flush();
+    // }
+    // return written;
 }
 
 uint16_t VS1053::sciRead(uint8_t addr)
