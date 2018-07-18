@@ -9,14 +9,14 @@
 #include "RTC/twi.h"
 #include "VS/VS1053.h"
 #include "main.h"
-#include "SD/ff.h"
+// #include "SD/ff.h"
 
 RTC_DS3231 RTC;
 VS1053 recorder;
 UART serial(BAUDRATE);
 
-FATFS FatFs;	// FatFs work area
-uint8_t BUFFER[128];
+// FATFS FatFs;	// FatFs work area
+// uint8_t BUFFER[128];
 
 ISR(__vector_default){}
 
@@ -25,20 +25,20 @@ ISR(USART_RX_vect)
   serial.toBuffer();
 }
 
-DWORD get_fattime (void)
-{
-  DateTime now = RTC.now();
+// DWORD get_fattime (void)
+// {
+//   DateTime now = RTC.now();
+//
+// 	/* Pack date and time into a DWORD variable */
+// 	return	  ((DWORD)(now.year() - 1980) << 25)
+// 			| ((DWORD)now.month() << 21)
+// 			| ((DWORD)now.day() << 16)
+// 			| ((DWORD)now.hour() << 11)
+// 			| ((DWORD)now.minute() << 5)
+// 			| ((DWORD)now.second() >> 1);
+// }
 
-	/* Pack date and time into a DWORD variable */
-	return	  ((DWORD)(now.year() - 1980) << 25)
-			| ((DWORD)now.month() << 21)
-			| ((DWORD)now.day() << 16)
-			| ((DWORD)now.hour() << 11)
-			| ((DWORD)now.minute() << 5)
-			| ((DWORD)now.second() >> 1);
-}
-
-void mount(void);
+// void mount(void);
 
 void sendTime(void)
 {
@@ -91,10 +91,10 @@ void initSystems(void)
 
   serial.println("Connection");
 
-  if (f_mount(0, &FatFs) != FR_OK)
-  {
-    serial.println("SD error");
-  }
+  // if (f_mount(0, &FatFs) != FR_OK)
+  // {
+  //   serial.println("SD error");
+  // }
 
   if (! recorder.begin())
   {
@@ -105,15 +105,13 @@ void initSystems(void)
 
 int main(void)
 {
-
   initSystems();
 
-  serial.write(recorder.recordedWordsWaiting());
+  serial.write(recorder.sciRead(VS1053_REG_CLOCKF));
   serial.println("");
+
+  _delay_ms(1000);
   recorder.startRecord(1);
-
-
-  // mount();
 
   while(1)
   {
@@ -126,27 +124,27 @@ int main(void)
   return 0;
 }
 
-void mount(void)
-{
-  UINT bw;
-
-  FIL *fp;
-  fp = (FIL *) malloc(sizeof (FIL));
-  uint8_t temp;
-
-  temp = f_open(fp, "file.txt", FA_WRITE | FA_CREATE_ALWAYS);
-
-  if (temp == FR_OK)
-  {	// Create a file
-    const char *text = "Hello World! SDCard support up and running!\r\n";
-    f_write(fp, text, strlen(text), &bw);	// Write data to the file
-    f_close(fp);// Close the file
-    serial.println("File written");
-  }
-  else
-  {
-    serial.print("file error: ");
-    serial.write(temp);
-    serial.println("");
-  }
-}
+// void mount(void)
+// {
+//   UINT bw;
+//
+//   FIL *fp;
+//   fp = (FIL *) malloc(sizeof (FIL));
+//   uint8_t temp;
+//
+//   temp = f_open(fp, "file.txt", FA_WRITE | FA_CREATE_ALWAYS);
+//
+//   if (temp == FR_OK)
+//   {	// Create a file
+//     const char *text = "Hello World! SDCard support up and running!\r\n";
+//     f_write(fp, text, strlen(text), &bw);	// Write data to the file
+//     f_close(fp);// Close the file
+//     serial.println("File written");
+//   }
+//   else
+//   {
+//     serial.print("file error: ");
+//     serial.write(temp);
+//     serial.println("");
+//   }
+// }

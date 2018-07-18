@@ -125,7 +125,7 @@ class VS1053
     // uint16_t loadPlugin(char *fn);
     void loadPlugin(void);
 
-
+    void prepareRecord(void);
     void startRecord(bool mic);
 
     bool prepareRecordOgg(char *plugin);
