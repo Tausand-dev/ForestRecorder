@@ -16,8 +16,9 @@
 RTC_DS3231 RTC;
 UART serial(BAUDRATE);
 
-// FATFS FatFs;	// FatFs work area
-// FIL *fp; // fpe object
+FATFS FatFs;	// FatFs work area
+FIL *fp; // fpe object
+uint8_t BUFFER[128];
 
 ISR(__vector_default){}
 
@@ -26,25 +27,25 @@ ISR(USART_RX_vect)
   serial.toBuffer();
 }
 
-// DWORD get_fattime (void)
-// {
-//   DateTime now = RTC.now();
-//
-// 	/* Pack date and time into a DWORD variable */
-// 	return	  ((DWORD)(now.year() - 1980) << 25)
-// 			| ((DWORD)now.month() << 21)
-// 			| ((DWORD)now.day() << 16)
-// 			| ((DWORD)now.hour() << 11)
-// 			| ((DWORD)now.minute() << 5)
-// 			| ((DWORD)now.second() >> 1);
-// }
-//
-// ISR(TIMER0_COMPA_vect)
-// {
-// 	Timer1++;			/* Performance counter for this module */
-// 	mmc_disk_timerproc();	/* Drive timer procedure of low level disk I/O module */
-// }
-//
+DWORD get_fattime (void)
+{
+  DateTime now = RTC.now();
+
+	/* Pack date and time into a DWORD variable */
+	return	  ((DWORD)(now.year() - 1980) << 25)
+			| ((DWORD)now.month() << 21)
+			| ((DWORD)now.day() << 16)
+			| ((DWORD)now.hour() << 11)
+			| ((DWORD)now.minute() << 5)
+			| ((DWORD)now.second() >> 1);
+}
+
+ISR(TIMER0_COMPA_vect)
+{
+	Timer1++;			/* Performance counter for this module */
+	mmc_disk_timerproc();	/* Drive timer procedure of low level disk I/O module */
+}
+
 // static void ioinit (void)
 // {
 // 	// MCUCR = _BV(JTD); MCUCR = _BV(JTD);	/* Disable JTAG */
@@ -56,6 +57,7 @@ ISR(USART_RX_vect)
 // 	TIMSK0 = _BV(OCIE0A);
 // }
 
+void mount(void);
 
 void sendTime(void)
 {
@@ -102,24 +104,28 @@ void serialHandler(void)
 
 int main(void)
 {
-  // ioinit();
+  ioinit();
   RTC.begin();
   serial.setUART();
   serial.println("Connection");
 
   sei();
 
-  VS1053 recorder;
-  uint8_t error = recorder.begin();
+  mount();
 
-  if (! error)
-  {
-    serial.print("VS1053 init error: ");
-    serial.write(error);
-    serial.println("");
-  }
+  // VS1053 recorder;
+  // uint8_t error = recorder.begin();
 
-  // mount();
+
+
+  // if (! error)
+  // {
+  //   serial.print("VS1053 init error: ");
+  //   serial.write(error);
+  //   serial.println("");
+  // }
+
+
 
   while(1)
   {
@@ -129,38 +135,37 @@ int main(void)
   return 0;
 }
 
-// void mount(void)
-// {
-//
-//     uint8_t temp;
-//
-//   	temp = f_mount(&FatFs, "", 1);		// Give a work area to the FatFs module
-//     if (temp == FR_OK)
-//     {
-//       serial.println("F_MOUNT: OK");
-//
-//       fp = (FIL *)malloc(sizeof (FIL));
-//       temp = f_open(fp, "0:file.txt", FA_WRITE | FA_CREATE_ALWAYS);
-//
-//       if (temp == FR_OK)
-//     	{
-//         UINT bw;
-//     		const char *text = "Hello World! SDCard support up and running!\r\n";
-//     		f_write(fp, text, strlen(text), &bw);	// Write data to the file
-//     		f_close(fp);// Close the file
-//     		serial.println("File written");
-//     	}
-//     	else
-//     	{
-//     		serial.print("file error: ");
-//     		serial.write(temp);
-//     		serial.println("");
-//       }
-//     }
-//     else
-//     {
-//       serial.print("F_MOUNT error: ");
-//       serial.write(temp);
-//       serial.println("");
-//     }
-// }
+void mount(void)
+{
+    uint8_t temp;
+
+  	temp = f_mount(&FatFs, "", 1);		// Give a work area to the FatFs module
+    if (temp == FR_OK)
+    {
+      serial.println("F_MOUNT: OK");
+
+      fp = (FIL *)malloc(sizeof (FIL));
+      temp = f_open(fp, "0:file.txt", FA_WRITE | FA_CREATE_ALWAYS);
+
+      if (temp == FR_OK)
+    	{
+        UINT bw;
+    		const char *text = "Hello World! SDCard support up and running!\r\n";
+    		f_write(fp, text, strlen(text), &bw);	// Write data to the file
+    		f_close(fp);// Close the file
+    		serial.println("File written");
+    	}
+    	else
+    	{
+    		serial.print("file error: ");
+    		serial.write(temp);
+    		serial.println("");
+      }
+    }
+    else
+    {
+      serial.print("F_MOUNT error: ");
+      serial.write(temp);
+      serial.println("");
+    }
+}

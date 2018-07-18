@@ -38,7 +38,7 @@ EFU = 0x00
 SRC = $(PRJ)
 # where to look for external libraries (consisting of .c/.cpp files and .h files)
 # e.g. EXT = ../../EyeToSee ../../YouSART
-EXT = . RTC/ Serial/ VS/ SPI/ #SD/
+EXT = . RTC/ Serial/ VS/ SPI/ SdFat/
 
 
 #################################################################################################
