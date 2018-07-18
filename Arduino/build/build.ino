@@ -106,7 +106,9 @@ void setup()
         Serial.println(F("Couldn't find VS1053"));
         resetFunc();
     }
-    
+
+   
+
     if (! musicPlayer.prepareRecordOgg("v44k1q05.img"))
     {
          Serial.println(F("Couldn't load plugin!"));
