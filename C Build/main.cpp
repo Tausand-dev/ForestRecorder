@@ -111,17 +111,16 @@ int main(void)
   serial.write(recorder.recordedWordsWaiting());
   serial.println("");
   recorder.startRecord(1);
-  _delay_ms(1000);
-  serial.write(recorder.sciRead(0x0C));
-  serial.println("");
-  serial.write(recorder.recordedWordsWaiting());
-  serial.println("");
+
 
   // mount();
 
   while(1)
   {
-    serialHandler();
+    serial.write(recorder.recordedWordsWaiting());
+    serial.println("");
+    _delay_ms(1000);
+    // serialHandler();
   }
 
   return 0;
