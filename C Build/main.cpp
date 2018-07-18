@@ -9,9 +9,7 @@
 #include "RTC/twi.h"
 #include "VS/VS1053.h"
 #include "main.h"
-// #include "SD/ff.h"
-// #include "SD/diskio.h"
-// #include "SD/mmc_avr.h"
+#include "SD/ff.h"
 
 RTC_DS3231 RTC;
 UART serial(BAUDRATE);
@@ -39,23 +37,6 @@ DWORD get_fattime (void)
 			| ((DWORD)now.minute() << 5)
 			| ((DWORD)now.second() >> 1);
 }
-
-ISR(TIMER0_COMPA_vect)
-{
-	Timer1++;			/* Performance counter for this module */
-	mmc_disk_timerproc();	/* Drive timer procedure of low level disk I/O module */
-}
-
-// static void ioinit (void)
-// {
-// 	// MCUCR = _BV(JTD); MCUCR = _BV(JTD);	/* Disable JTAG */
-//
-// 	/* Start 100Hz system timer with TC0 */
-// 	OCR0A = F_CPU / 1024 / 100 - 1;
-// 	TCCR0A = _BV(WGM01);
-// 	TCCR0B = 0b101;
-// 	TIMSK0 = _BV(OCIE0A);
-// }
 
 void mount(void);
 
@@ -104,7 +85,6 @@ void serialHandler(void)
 
 int main(void)
 {
-  ioinit();
   RTC.begin();
   serial.setUART();
   serial.println("Connection");
@@ -113,10 +93,8 @@ int main(void)
 
   mount();
 
-  // VS1053 recorder;
+  VS1053 recorder;
   // uint8_t error = recorder.begin();
-
-
 
   // if (! error)
   // {
@@ -137,35 +115,25 @@ int main(void)
 
 void mount(void)
 {
-    uint8_t temp;
+  UINT bw;
+  f_mount(0, &FatFs);	
+  // open file
+  fp = (FIL *)malloc(sizeof (FIL));
+  uint8_t temp;
 
-  	temp = f_mount(&FatFs, "", 1);		// Give a work area to the FatFs module
-    if (temp == FR_OK)
-    {
-      serial.println("F_MOUNT: OK");
+  temp = f_open(fp, "file.txt", FA_WRITE | FA_CREATE_ALWAYS);
 
-      fp = (FIL *)malloc(sizeof (FIL));
-      temp = f_open(fp, "0:file.txt", FA_WRITE | FA_CREATE_ALWAYS);
-
-      if (temp == FR_OK)
-    	{
-        UINT bw;
-    		const char *text = "Hello World! SDCard support up and running!\r\n";
-    		f_write(fp, text, strlen(text), &bw);	// Write data to the file
-    		f_close(fp);// Close the file
-    		serial.println("File written");
-    	}
-    	else
-    	{
-    		serial.print("file error: ");
-    		serial.write(temp);
-    		serial.println("");
-      }
-    }
-    else
-    {
-      serial.print("F_MOUNT error: ");
-      serial.write(temp);
-      serial.println("");
-    }
+  if (temp == FR_OK)
+  {	// Create a file
+    const char *text = "Hello World! SDCard support up and running!\r\n";
+    f_write(fp, text, strlen(text), &bw);	// Write data to the file
+    f_close(fp);// Close the file
+    serial.println("File written");
+  }
+  else
+  {
+    serial.print("file error: ");
+    serial.write(temp);
+    serial.println("");
+  }
 }
