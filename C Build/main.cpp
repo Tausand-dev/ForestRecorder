@@ -12,10 +12,10 @@
 #include "SD/ff.h"
 
 RTC_DS3231 RTC;
+VS1053 recorder;
 UART serial(BAUDRATE);
 
 FATFS FatFs;	// FatFs work area
-FIL *fp; // fpe object
 uint8_t BUFFER[128];
 
 ISR(__vector_default){}
@@ -83,27 +83,41 @@ void serialHandler(void)
   }
 }
 
-int main(void)
+void initSystems(void)
 {
+  sei();
   RTC.begin();
   serial.setUART();
+
   serial.println("Connection");
 
-  sei();
+  if (f_mount(0, &FatFs) != FR_OK)
+  {
+    serial.println("SD error");
+  }
 
-  mount();
+  if (! recorder.begin())
+  {
+    serial.println("VS1053 init error");
+  }
 
-  VS1053 recorder;
-  // uint8_t error = recorder.begin();
+}
 
-  // if (! error)
-  // {
-  //   serial.print("VS1053 init error: ");
-  //   serial.write(error);
-  //   serial.println("");
-  // }
+int main(void)
+{
 
+  initSystems();
 
+  serial.write(recorder.recordedWordsWaiting());
+  serial.println("");
+  recorder.startRecord(1);
+  _delay_ms(1000);
+  serial.write(recorder.sciRead(0x0C));
+  serial.println("");
+  serial.write(recorder.recordedWordsWaiting());
+  serial.println("");
+
+  // mount();
 
   while(1)
   {
@@ -116,9 +130,9 @@ int main(void)
 void mount(void)
 {
   UINT bw;
-  f_mount(0, &FatFs);	
-  // open file
-  fp = (FIL *)malloc(sizeof (FIL));
+
+  FIL *fp;
+  fp = (FIL *) malloc(sizeof (FIL));
   uint8_t temp;
 
   temp = f_open(fp, "file.txt", FA_WRITE | FA_CREATE_ALWAYS);

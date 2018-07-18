@@ -16,25 +16,6 @@
 #include <util/delay.h>
 #include "VS1053.h"
 #include "../SPI/SPI.h"
-//#include <SD.h>
-
-/*
-#include <BlockDriver.h>
-#include <FreeStack.h>
-#include <MinimumSerial.h>
-#include <SdFat.h>
-#include <SdFatConfig.h>
-#include <SysCall.h>
-*/
-
-// volatile bool feedBufferLock = false;
-//
-// #define VS1053_CONTROL_SPI_SETTING  SPISettings(250000,  MSBFIRST, SPI_MODE0)
-// #define VS1053_DATA_SPI_SETTING     SPISettings(8000000, MSBFIRST, SPI_MODE0)
-
-/***************************************************************/
-
-
 
 uint16_t VS1053::loadPlugin(char *plugname)
 {
@@ -146,6 +127,26 @@ uint16_t VS1053::recordedWordsWaiting(void)
 uint16_t VS1053::recordedReadWord(void)
 {
   return sciRead(VS1053_REG_HDAT0);
+}
+
+void VS1053::startRecord(bool mic)
+{
+  sciWrite(VS1053_SCI_AICTRL0, 16000U);
+  sciWrite(VS1053_SCI_AICTRL1, 0);
+  sciWrite(VS1053_SCI_AICTRL2, 4096U);
+  sciWrite(VS1053_SCI_AICTRL3, (1 << 2));
+
+  uint8_t config;
+
+  config = sciRead(VS1053_REG_MODE) | VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM;
+
+  if (! mic)
+  {
+    config |= VS1053_MODE_SM_LINE1;
+  }
+  sciWrite(VS1053_REG_MODE, config);
+
+  _delay_ms(1);    while (! readyForData() );
 }
 
 bool VS1053::prepareRecordOgg(char *plugname)
