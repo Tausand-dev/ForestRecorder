@@ -10,6 +10,7 @@ class SPI
   public:
     SPI(void);
     void begin(void);
+    void stop(void);
     uint8_t transfer(uint8_t);
 };
 

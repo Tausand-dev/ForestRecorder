@@ -26,10 +26,16 @@ SPI::SPI(void)
 
 void SPI::begin(void)
 {
-    DDRB &= ~(1 << MISO);
-    DDRB |= (1 << MOSI) | (1 << SCK);              //Set MOSI, SCK as Output
-    SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0); //Enable SPI, Set as Master, Prescaler: Fosc/16
-    SPSR = (1 << SPI2X);
+  DDRB &= ~(1 << MISO);
+  DDRB |= (1 << MOSI) | (1 << SCK);              //Set MOSI, SCK as Output
+  SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0); //Enable SPI, Set as Master, Prescaler: Fosc/16
+  SPSR = (1 << SPI2X);
+}
+
+void SPI::stop(void)
+{
+  SPCR = 0;
+  SPSR = 0;
 }
 
 uint8_t SPI::transfer(uint8_t data)

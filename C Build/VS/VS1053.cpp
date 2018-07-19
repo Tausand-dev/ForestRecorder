@@ -57,7 +57,6 @@ uint8_t VS1053::begin(void)
   digitalWrite(&CS_PORT, CS, 1);
   digitalWrite(&DCS_PORT, DCS, 1);
 
-  spi.begin();
   fp = (FIL *) malloc(sizeof (FIL));
   reset();
 
@@ -136,82 +135,75 @@ void VS1053::startRecord(const char *name, bool mic)
   file_name = name;
 }
 
-uint8_t VS1053::bufferToSD(uint16_t last_position)
+uint8_t VS1053::bufferToSD(uint16_t bytes)
 {
   if (f_open(fp, file_name, FA_WRITE) == FR_OK)
   {
-    f_write(fp, buffer, last_position, &bw);	// Write data to the file
+    f_write(fp, buffer, bytes, &bw);	// Write data to the file
     f_close(fp);// Close the file
     return 1;
   }
   return 0;
 }
 
-uint8_t VS1053::saveRecordedData(void)
+uint8_t VS1053::saveRecordedData(uint8_t wrap)
 {
-    uint8_t x;
-    uint16_t written, waiting = recordedWordsWaiting(); // read how many words are waiting
-    while (waiting >= VS1053_MWORDS) // try to process 256 words (512 bytes) at a time, for best speed
+  uint8_t x;
+  uint16_t addr, t;
+  uint16_t waiting = recordedWordsWaiting(); // read how many words are waiting
+  while (waiting >= VS1053_MWORDS) // try to process 256 words (512 bytes) at a time, for best speed
+  {
+    for (x = 0; x < VS1053_MBYTES / VS1053_RECBUFFSIZE; x++) // for example 128 bytes x 4 loops = 512 bytes
     {
-        for (x = 0; x < VS1053_MBYTES / VS1053_RECBUFFSIZE; x++) // for example 128 bytes x 4 loops = 512 bytes
-        {
-            for (uint16_t addr = 0; addr < VS1053_RECBUFFSIZE; addr += 2)
-            {
-                uint16_t t = recordedReadWord();
-                buffer[addr] = t >> 8;
-                buffer[addr + 1] = t;
-            }
-            if(! bufferToSD(VS1053_MWORDS))
-            {
-              return 0;
-            }
-        }
-        written += VS1053_MWORDS;
-        waiting -= VS1053_MWORDS;
+      for (addr = 0; addr < VS1053_RECBUFFSIZE; addr += 2)
+      {
+        t = recordedReadWord();
+        buffer[addr] = t >> 8;
+        buffer[addr + 1] = t;
+      }
+      if(! bufferToSD(VS1053_RECBUFFSIZE))
+      {
+        return 0;
+      }
     }
-    return 1;
-    // wordswaiting = musicPlayer.recordedWordsWaiting();
-    // if (!isrecord)
-    // {
-    //     // wrapping up the recording!
-    //     uint16_t addr = 0;
-    //     for (int x=0; x < wordswaiting-1; x++)
-    //     {
-    //         // fill the buffer!
-    //         uint16_t t = musicPlayer.recordedReadWord();
-    //         RECORDING_BUFFER[addr] = t >> 8;
-    //         RECORDING_BUFFER[addr+1] = t;
-    //         if (addr > RECBUFFSIZE)
-    //         {
-    //             if (! RECORDING_FILE.write(RECORDING_BUFFER, RECBUFFSIZE))
-    //             {
-    //                 Serial.println("Couldn't write 607");
-    //                 resetFunc();
-    //             }
-    //             RECORDING_FILE.flush();
-    //             addr = 0;
-    //         }
-    //     }
-    //     if (addr != 0)
-    //     {
-    //         if (! RECORDING_FILE.write(RECORDING_BUFFER, addr))
-    //         {
-    //             Serial.println("Couldn't write 618");
-    //             resetFunc();
-    //         }
-    //         RECORDING_FILE.flush();
-    //         written += addr;
-    //     }
-    //     musicPlayer.sciRead(VS1053_SCI_AICTRL3);
-    //
-    //     if (! (musicPlayer.sciRead(VS1053_SCI_AICTRL3) & _BV(2)))
-    //     {
-    //         RECORDING_FILE.write(musicPlayer.recordedReadWord() & 0xFF);
-    //         written++;
-    //     }
-    //     RECORDING_FILE.flush();
-    // }
-    // return written;
+    waiting -= VS1053_MWORDS;
+  }
+
+  if (wrap)
+  {
+    waiting = recordedWordsWaiting();
+    for (addr = 0; addr < waiting - 1; addr++)
+    {
+      t = recordedReadWord();
+      buffer[addr] = t >> 8;
+      buffer[addr + 1] = t;
+      if (addr > VS1053_RECBUFFSIZE)
+      {
+        if(! bufferToSD(VS1053_RECBUFFSIZE))
+        {
+          return 0;
+        }
+        addr = 0;
+      }
+    }
+    if (addr != 0)
+    {
+      if(! bufferToSD(addr))
+      {
+        return 0;
+      }
+    }
+
+    if (! (sciRead(VS1053_SCI_AICTRL3) & (1 << 2)))
+    {
+      buffer[0] = recordedReadWord() & 0xFF;
+      if(! bufferToSD(1))
+      {
+        return 0;
+      }
+    }
+  }
+  return 1;
 }
 
 uint16_t VS1053::sciRead(uint8_t addr)
@@ -230,6 +222,7 @@ uint16_t VS1053::sciRead(uint8_t addr)
   data |= spiread();
 
   digitalWrite(&CS_PORT, CS, 1);
+  spi.stop();
   return data;
 }
 
@@ -242,7 +235,7 @@ void VS1053::sciWrite(uint8_t addr, uint16_t data)
   spiwrite(data >> 8);
   spiwrite(data & 0xFF);
   digitalWrite(&CS_PORT, CS, 1);
-  // SPI.endTransaction();
+  spi.stop();
 }
 
 uint8_t VS1053::spiread(void)

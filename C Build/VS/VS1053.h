@@ -111,7 +111,7 @@ class VS1053
     // uint16_t loadPlugin(char *fn);
     void loadPlugin(void);
     void startRecord(const char *name, bool mic);
-    uint8_t saveRecordedData(void);
+    uint8_t saveRecordedData(uint8_t wrap);
     uint8_t bufferToSD(uint16_t words);
 
     uint16_t recordedWordsWaiting(void);

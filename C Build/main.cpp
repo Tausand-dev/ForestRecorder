@@ -15,7 +15,7 @@ RTC_DS3231 RTC;
 VS1053 recorder;
 UART serial(BAUDRATE);
 
-FATFS FatFs;	// FatFs work area
+FATFS FatFs;
 
 ISR(__vector_default){}
 
@@ -84,6 +84,7 @@ void serialHandler(void)
 
 void initSystems(void)
 {
+  _delay_ms(1000);
   sei();
   RTC.begin();
   serial.setUART();
@@ -106,15 +107,25 @@ int main(void)
 {
   initSystems();
 
-  recorder.startRecord("test.wav", 1);
+  // _delay_ms(100);
+  // recorder.startRecord("Test.wav", 1);
+  // _delay_ms(100);
 
-  while(1)
-  {
-    serial.write(recorder.recordedWordsWaiting());
-    serial.println("");
-    _delay_ms(1000);
-    // serialHandler();
-  }
+  // uint8_t i;
+  //
+  // for(i = 0; i < 200; i++)
+  // {
+  //   if(! recorder.saveRecordedData(0))
+  //   {
+  //     serial.println("Error saving data");
+  //   }
+  // }
+
+  // recorder.saveRecordedData(1);
+
+  mount();
+
+  serial.println("Done");
 
   return 0;
 }
@@ -122,24 +133,12 @@ int main(void)
 void mount(void)
 {
   UINT bw;
-
   FIL *fp;
   fp = (FIL *) malloc(sizeof (FIL));
-  uint8_t temp;
-
-  temp = f_open(fp, "file.txt", FA_WRITE | FA_CREATE_ALWAYS);
-
-  if (temp == FR_OK)
-  {	// Create a file
-    const char *text = "Hello World! SDCard support up and running!\r\n";
-    f_write(fp, text, strlen(text), &bw);	// Write data to the file
-    f_close(fp);// Close the file
-    serial.println("File written");
-  }
-  else
+  if (f_open(fp, "text.txt", FA_WRITE) == FR_OK)
   {
-    serial.print("file error: ");
-    serial.write(temp);
-    serial.println("");
+    f_write(fp, "Hello World\n", 12, &bw);	// Write data to the file
+    f_close(fp);// Close the file
+    // return 1;
   }
 }
