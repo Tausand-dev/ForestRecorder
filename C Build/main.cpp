@@ -7,15 +7,16 @@
 #include "Serial/serial.h"
 #include "RTC/rtc.h"
 #include "RTC/twi.h"
-#include "VS/VS1053.h"
+// #include "VS/VS1053.h"
 #include "main.h"
 #include "SD/ff.h"
 
 RTC_DS3231 RTC;
-VS1053 recorder;
+// VS1053 recorder;
 UART serial(BAUDRATE);
 
 FATFS FatFs;
+FIL *fp;
 
 ISR(__vector_default){}
 
@@ -82,24 +83,43 @@ void serialHandler(void)
   }
 }
 
+void writeReset(void)
+{
+  UINT bw;
+  char buffer[10];
+  DateTime now = RTC.now();
+  ltoa(now.unixtime(), buffer, 10);
+
+  fp = (FIL *) malloc(sizeof (FIL));
+
+  uint8_t temp = f_open(fp, "resets.dat", FA_WRITE | FA_CREATE_ALWAYS);
+  if (temp == FR_OK)
+  {
+    f_write(fp, buffer, 10, &bw);
+    f_close(fp);
+  }
+  else
+  {
+    serial.print("Error on write reset: ");
+    serial.write(temp);
+    serial.println("");
+  }
+}
+
 void initSystems(void)
 {
-  _delay_ms(1000);
   sei();
   RTC.begin();
   serial.setUART();
-
   serial.println("Connection");
 
-  if (f_mount(0, &FatFs) != FR_OK)
-  {
-    serial.println("SD error");
-  }
+  f_mount(0, &FatFs);
+  writeReset();
 
-  if (! recorder.begin())
-  {
-    serial.println("VS1053 init error");
-  }
+  // if (! recorder.begin())
+  // {
+  //   serial.println("VS1053 init error");
+  // }
 
 }
 
@@ -122,23 +142,9 @@ int main(void)
   // }
 
   // recorder.saveRecordedData(1);
-
   mount();
 
   serial.println("Done");
 
   return 0;
-}
-
-void mount(void)
-{
-  UINT bw;
-  FIL *fp;
-  fp = (FIL *) malloc(sizeof (FIL));
-  if (f_open(fp, "text.txt", FA_WRITE) == FR_OK)
-  {
-    f_write(fp, "Hello World\n", 12, &bw);	// Write data to the file
-    f_close(fp);// Close the file
-    // return 1;
-  }
 }

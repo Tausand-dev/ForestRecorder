@@ -45,38 +45,6 @@
 #define	CS_H()		PORTD |= (1<<CS_DQ)	/* Set MMC CS "high" */
 #define CS_L()		PORTD &= ~(1<<CS_DQ)	/* Set MMC CS "low" */
 
-
-// static
-// void _delay_us (UINT n)	/* Delay n microseconds (avr-gcc -Os) */
-// {
-// 	do {
-// 		PINB;
-// #if F_CPU >= 6000000
-// 		PINB;
-// #endif
-// #if F_CPU >= 7000000
-// 		PINB;
-// #endif
-// #if F_CPU >= 8000000
-// 		PINB;
-// #endif
-// #if F_CPU >= 9000000
-// 		PINB;
-// #endif
-// #if F_CPU >= 10000000
-// 		PINB;
-// #endif
-// #if F_CPU >= 12000000
-// 		PINB; PINB;
-// #endif
-// #if F_CPU >= 14000000
-// #error Too fast clock
-// #endif
-// 	} while (--n);
-// }
-
-
-
 /*--------------------------------------------------------------------------
 
    Module Private Functions
