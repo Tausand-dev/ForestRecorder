@@ -102,6 +102,7 @@ class VS1053
     void stopRecord(void);
     uint8_t startRecord(const char *name, bool mic);
     uint8_t saveRecordedData(uint8_t wrap);
+    uint8_t endPCMHeader(void);
 
     uint16_t recordedWordsWaiting(void);
     uint16_t recordedReadWord(void);
@@ -110,6 +111,7 @@ class VS1053
     SPI spi;
     UINT bw;
     FIL *fp;
+    const char *file_name;
 
     uint8_t buffer[VS1053_RECBUFFSIZE];
 };

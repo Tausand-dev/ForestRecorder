@@ -144,7 +144,7 @@ int main(void)
 {
   initSystems();
 
-  uint8_t i = 0, error;
+  uint16_t i = 0, error;
   error = recorder.startRecord("Test.wav", 1);
   if(error != FR_OK)
   {
@@ -152,23 +152,19 @@ int main(void)
     serial.println("");
   }
 
-  _delay_ms(50);
-
-  for(i = 0; i < 250; i++)
+  for(i = 0; i < 0xFFFD; i++)
   {
-    recorder.saveRecordedData(0);
+    error = recorder.saveRecordedData(0);
+    if (error != FR_OK)
+    {
+      serial.write(error);
+      serial.println(" saving record\n");
+      break;
+    }
   }
+
   serial.println("Loop done");
   recorder.stopRecord();
-
-  uint16_t left = recorder.recordedWordsWaiting();
-  while (left)
-  {
-    left = recorder.recordedWordsWaiting();
-    serial.write(left);
-    serial.println("");
-    // recorder.saveRecordedData(1);
-  }
 
   serial.println("Done");
 

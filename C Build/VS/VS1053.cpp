@@ -135,18 +135,82 @@ uint8_t VS1053::startRecord(const char *name, bool mic)
   loadPlugin();
   while (! readyForData() );
 
-  return f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
+  file_name = name;
+
+  uint8_t error = f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
+  /* write "RIFF" */
+  buffer[0] = 'R';
+  buffer[1] = 'I';
+  buffer[2] = 'F';
+  buffer[3] = 'F';
+
+  /* write "WAVE" */
+  buffer[8] = 'W';
+  buffer[9] = 'A';
+  buffer[10] = 'V';
+  buffer[11] = 'E';
+
+  /* write "fmt " */
+  buffer[12] = 'f';
+  buffer[13] = 'm';
+  buffer[14] = 't';
+  buffer[15] = ' ';
+
+  /*subchunk1D*/
+  buffer[16] = 0x10;
+  buffer[17] = 0;
+  buffer[18] = 0;
+  buffer[19] = 0;
+
+  /*audio format*/
+  buffer[20] = 0x01;
+  buffer[21] = 0;
+
+  /*number channels*/
+  buffer[22] = 0x01;
+  buffer[23] = 0;
+
+  /*sample rate*/
+  buffer[24] = 0x80;
+  buffer[25] = 0x3e;
+  buffer[26] = 0;
+  buffer[27] = 0;
+
+  /*Byte rate*/
+  buffer[28] = 0x00;
+  buffer[29] = 0x7d;
+  buffer[30] = 0;
+  buffer[31] = 0;
+
+  /*Block align*/
+  buffer[32] = 0x02;
+  buffer[33] = 0;
+
+  /*Bits sample*/
+  buffer[34] = 0x10;
+  buffer[35] = 0;
+
+  /*Byte rate*/
+  buffer[36] = 'd';
+  buffer[37] = 'a';
+  buffer[38] = 't';
+  buffer[39] = 'a';
+
+  f_write(fp, buffer, 44, &bw);
+
+  return error;
 }
 
 void VS1053::stopRecord(void)
 {
   sciWrite(VS1053_SCI_AICTRL3, 1);
   while (! readyForData() );
+  saveRecordedData(1);
 }
 
 uint8_t VS1053::saveRecordedData(uint8_t wrap)
 {
-  uint8_t x;
+  uint8_t x, error;
   uint16_t addr, t;
   uint16_t waiting = recordedWordsWaiting(); // read how many words are waiting
   while (waiting >= VS1053_MWORDS) // try to process 256 words (512 bytes) at a time, for best speed
@@ -161,7 +225,11 @@ uint8_t VS1053::saveRecordedData(uint8_t wrap)
       }
       f_write(fp, buffer, VS1053_RECBUFFSIZE, &bw);
     }
-    f_sync(fp);
+    error = f_sync(fp);
+    if (error != FR_OK)
+    {
+      return error;
+    }
     waiting -= VS1053_MWORDS;
   }
 
@@ -175,25 +243,73 @@ uint8_t VS1053::saveRecordedData(uint8_t wrap)
       buffer[addr + 1] = t;
       if (addr > VS1053_RECBUFFSIZE)
       {
-        f_write(fp, buffer, VS1053_RECBUFFSIZE, &bw);
-        f_sync(fp);
         addr = 0;
+        f_write(fp, buffer, VS1053_RECBUFFSIZE, &bw);
+        error = f_sync(fp);
+        if (error != FR_OK)
+        {
+          return error;
+        }
       }
     }
     if (addr != 0)
     {
       f_write(fp, buffer, addr, &bw);
-      f_sync(fp);
+      error = f_sync(fp);
+      if (error != FR_OK)
+      {
+        return error;
+      }
     }
 
     if (! (sciRead(VS1053_SCI_AICTRL3) & (1 << 2)))
     {
       buffer[0] = recordedReadWord() & 0xFF;
       f_write(fp, buffer, 1, &bw);
-      f_close(fp);
+      error = f_sync(fp);
+      if (error != FR_OK)
+      {
+        return error;
+      }
     }
+    return endPCMHeader();
   }
   return FR_OK;
+}
+
+uint8_t VS1053::endPCMHeader(void)
+{
+  uint8_t error;
+  FSIZE_t size = f_size(fp);
+  // size = 1798768;
+  FSIZE_t chunckSize = size - 8;
+  FSIZE_t chunckSize3 = size - 36;
+
+  error = f_lseek(fp, 4);
+  if (error == FR_OK)
+  {
+    buffer[0] = chunckSize;
+    buffer[1] = chunckSize >> 8;
+    buffer[2] = chunckSize >> 16;
+    buffer[3] = chunckSize >> 24;
+    error = f_write(fp, buffer, 4, &bw);
+    f_sync(fp);
+  }
+
+  error = f_lseek(fp, 40);
+  if (error == FR_OK)
+  {
+    buffer[0] = chunckSize3;
+    buffer[1] = chunckSize3 >> 8;
+    buffer[2] = chunckSize3 >> 16;
+    buffer[3] = chunckSize3 >> 24;
+    error = f_write(fp, buffer, 4, &bw);
+    f_sync(fp);
+  }
+
+  f_close(fp);
+
+  return error;
 }
 
 uint16_t VS1053::sciRead(uint8_t addr)
