@@ -119,11 +119,12 @@ uint8_t VS1053::startRecord(const char *name, bool mic)
   sciWrite(VS1053_SCI_AICTRL0, 16000U);
   sciWrite(VS1053_SCI_AICTRL1, 0);
   sciWrite(VS1053_SCI_AICTRL2, 4096U);
-  sciWrite(VS1053_SCI_AICTRL3, 0);
-  // sciWrite(VS1053_SCI_AICTRL3, (1 << 2));
+  // sciWrite(VS1053_SCI_AICTRL3, 0);
+  sciWrite(VS1053_SCI_AICTRL3, (1 << 2));
   uint16_t config = 0;
 
-  config = VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_SDINEW;
+  config = VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM;
+  // config = VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_SDINEW;
   if (! mic)
   {
     config |= VS1053_MODE_SM_LINE1;

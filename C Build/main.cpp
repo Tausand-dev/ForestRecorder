@@ -161,14 +161,14 @@ int main(void)
   serial.println("Loop done");
   recorder.stopRecord();
 
-  // uint16_t left = recorder.recordedWordsWaiting();
-  // while (left)
-  // {
-  //   left = recorder.recordedWordsWaiting();
-  //   serial.write(left);
-  //   serial.println("");
-  //   // recorder.saveRecordedData(1);
-  // }
+  uint16_t left = recorder.recordedWordsWaiting();
+  while (left)
+  {
+    left = recorder.recordedWordsWaiting();
+    serial.write(left);
+    serial.println("");
+    // recorder.saveRecordedData(1);
+  }
 
   serial.println("Done");
 
