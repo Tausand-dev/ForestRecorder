@@ -14,6 +14,7 @@
 
 #include <avr/io.h>
 #include <stdlib.h>
+#include <string.h>
 #include <util/delay.h>
 #include "VS1053.h"
 #include "../SPI/SPI.h"
@@ -57,7 +58,6 @@ uint8_t VS1053::begin(void)
   digitalWrite(&CS_PORT, CS, 1);
   digitalWrite(&DCS_PORT, DCS, 1);
 
-  fp = (FIL *) malloc(sizeof (FIL));
   reset();
 
   uint8_t val = (sciRead(VS1053_REG_STATUS) >> 4) & 0x0F;
@@ -110,7 +110,7 @@ void VS1053::loadPlugin(void)
   sciWrite(VS1053_REG_WRAM, 0x040e);
 }
 
-void VS1053::startRecord(const char *name, bool mic)
+void VS1053::startRecord(bool mic)
 {
   softReset();
   while(! readyForData());
@@ -131,79 +131,7 @@ void VS1053::startRecord(const char *name, bool mic)
   sciWrite(VS1053_REG_MODE, config);
   while (! readyForData() );
   loadPlugin();
-
-  file_name = name;
-}
-
-uint8_t VS1053::bufferToSD(uint16_t bytes)
-{
-  if (f_open(fp, file_name, FA_WRITE) == FR_OK)
-  {
-    f_write(fp, buffer, bytes, &bw);	// Write data to the file
-    f_close(fp);// Close the file
-    return 1;
-  }
-  return 0;
-}
-
-uint8_t VS1053::saveRecordedData(uint8_t wrap)
-{
-  uint8_t x;
-  uint16_t addr, t;
-  uint16_t waiting = recordedWordsWaiting(); // read how many words are waiting
-  while (waiting >= VS1053_MWORDS) // try to process 256 words (512 bytes) at a time, for best speed
-  {
-    for (x = 0; x < VS1053_MBYTES / VS1053_RECBUFFSIZE; x++) // for example 128 bytes x 4 loops = 512 bytes
-    {
-      for (addr = 0; addr < VS1053_RECBUFFSIZE; addr += 2)
-      {
-        t = recordedReadWord();
-        buffer[addr] = t >> 8;
-        buffer[addr + 1] = t;
-      }
-      if(! bufferToSD(VS1053_RECBUFFSIZE))
-      {
-        return 0;
-      }
-    }
-    waiting -= VS1053_MWORDS;
-  }
-
-  if (wrap)
-  {
-    waiting = recordedWordsWaiting();
-    for (addr = 0; addr < waiting - 1; addr++)
-    {
-      t = recordedReadWord();
-      buffer[addr] = t >> 8;
-      buffer[addr + 1] = t;
-      if (addr > VS1053_RECBUFFSIZE)
-      {
-        if(! bufferToSD(VS1053_RECBUFFSIZE))
-        {
-          return 0;
-        }
-        addr = 0;
-      }
-    }
-    if (addr != 0)
-    {
-      if(! bufferToSD(addr))
-      {
-        return 0;
-      }
-    }
-
-    if (! (sciRead(VS1053_SCI_AICTRL3) & (1 << 2)))
-    {
-      buffer[0] = recordedReadWord() & 0xFF;
-      if(! bufferToSD(1))
-      {
-        return 0;
-      }
-    }
-  }
-  return 1;
+  while (! readyForData() );
 }
 
 uint16_t VS1053::sciRead(uint8_t addr)

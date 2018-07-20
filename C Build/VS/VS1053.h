@@ -18,15 +18,6 @@
 #include "../SPI/SPI.h"
 #include "../SD/ff.h"
 
-/*
-#include <BlockDriver.h>
-#include <FreeStack.h>
-#include <MinimumSerial.h>
-#include <SdFat.h>
-#include <SdFatConfig.h>
-#include <SysCall.h>
-*/
-
 #define RESET PB1
 #define RESET_PIN PINB
 #define RESET_PORT PORTB
@@ -89,12 +80,6 @@
 #define VS1053_SCI_AICTRL2 0x0E
 #define VS1053_SCI_AICTRL3 0x0F
 
-#define VS1053_DATABUFFERLEN 32
-
-#define VS1053_RECBUFFSIZE 128  // 64 or 128 bytes.
-#define VS1053_MWORDS 256
-#define VS1053_MBYTES 512
-
 class VS1053
 {
   public:
@@ -108,21 +93,14 @@ class VS1053
     void spiwrite(uint8_t *c, uint16_t num);
     uint8_t spiread(void);
 
-    // uint16_t loadPlugin(char *fn);
     void loadPlugin(void);
-    void startRecord(const char *name, bool mic);
-    uint8_t saveRecordedData(uint8_t wrap);
-    uint8_t bufferToSD(uint16_t words);
+    void startRecord(bool mic);
 
     uint16_t recordedWordsWaiting(void);
     uint16_t recordedReadWord(void);
 
   private:
     SPI spi;
-    UINT bw;
-    FIL *fp;
-    const char *file_name;
-    uint8_t buffer[VS1053_RECBUFFSIZE];
 };
 
 #endif

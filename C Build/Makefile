@@ -38,7 +38,7 @@ EFU = 0x00
 SRC = $(PRJ)
 # where to look for external libraries (consisting of .c/.cpp files and .h files)
 # e.g. EXT = ../../EyeToSee ../../YouSART
-EXT = . RTC/ Serial/ SD/ #VS/ SPI/
+EXT = RTC/ Serial/ SD/ VS/ SPI/ .
 
 
 #################################################################################################
@@ -48,7 +48,7 @@ EXT = . RTC/ Serial/ SD/ #VS/ SPI/
 # include path
 INCLUDE := $(foreach dir, $(EXT), -I$(dir))
 # c flags
-CFLAGS    = -Wall -Wno-strict-aliasing -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE)
+CFLAGS    = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE)
 # any aditional flags for c++
 CPPFLAGS =
 

@@ -3,3 +3,6 @@
 #define SET_TIME_COMMAND 0x00
 #define GET_TIME_COMMAND 0x01
 #define RESET_COMMAND 0x02
+
+#define RECBUFFSIZE 128  // 64 or 128 bytes.
+#define VS1053_MWORDS 168 / 2
