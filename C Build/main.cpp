@@ -20,9 +20,7 @@ UINT bw;
 FIL *fp;
 FATFS *fs;
 
-char file_name[12];
 VS1053 recorder;
-uint8_t buffer[RECBUFFSIZE];
 
 ISR(__vector_default){}
 
@@ -142,131 +140,37 @@ void initSystems(void)
   }
 }
 
-uint8_t bufferToSD(uint16_t bytes)
-{
-  uint8_t error = f_open(fp, file_name, FA_WRITE | FA_OPEN_APPEND);
-  if (error == FR_OK)
-  {
-    f_write(fp, buffer, bytes, &bw);	// Write data to the file
-    f_close(fp);// Close the file
-  }
-
-  return error;
-}
-
-// uint8_t saveRecordedData(uint8_t wrap)
-// {
-//   uint8_t x, error;
-//   uint16_t addr, t;
-//   uint16_t waiting = recordedWordsWaiting(); // read how many words are waiting
-//   while (waiting >= VS1053_MWORDS) // try to process 256 words (512 bytes) at a time, for best speed
-//   {
-//     for (x = 0; x < VS1053_MBYTES / VS1053_RECBUFFSIZE; x++) // for example 128 bytes x 4 loops = 512 bytes
-//     {
-//       for (addr = 0; addr < VS1053_RECBUFFSIZE; addr += 2)
-//       {
-//         t = recordedReadWord();
-//         buffer[addr] = t >> 8;
-//         buffer[addr + 1] = t;
-//       }
-//       error = bufferToSD(VS1053_RECBUFFSIZE);
-//       if(error != FR_OK)
-//       {
-//         return error;
-//       }
-//       else
-//       {
-//         return 0;
-//       }
-//     }
-//     waiting -= VS1053_MWORDS;
-//   }
-//
-//   if (wrap)
-//   {
-//     waiting = recordedWordsWaiting();
-//     for (addr = 0; addr < waiting - 1; addr++)
-//     {
-//       t = recordedReadWord();
-//       buffer[addr] = t >> 8;
-//       buffer[addr + 1] = t;
-//       if (addr > VS1053_RECBUFFSIZE)
-//       {
-//         error = bufferToSD(VS1053_RECBUFFSIZE);
-//         if(error != FR_OK)
-//         {
-//           return error;
-//         }
-//         addr = 0;
-//       }
-//     }
-//     if (addr != 0)
-//     {
-//       error = bufferToSD(addr);
-//       if(error != FR_OK)
-//       {
-//         return error;
-//       }
-//     }
-//
-//     if (! (sciRead(VS1053_SCI_AICTRL3) & (1 << 2)))
-//     {
-//       buffer[0] = recordedReadWord() & 0xFF;
-//       error = bufferToSD(1);
-//       if(error != FR_OK)
-//       {
-//         return error;
-//       }
-//     }
-//   }
-//   return FR_OK;
-// }
-
-
-
 int main(void)
 {
   initSystems();
 
-  recorder.startRecord(1);
   uint8_t i = 0, error;
-  uint16_t words;
-
-  serial.println("Started");
-
-  const char *temp = "Hello poshito\n";
-  error = f_open(fp, "poshos.dat", FA_WRITE | FA_OPEN_APPEND);
-  if (error == FR_OK)
+  error = recorder.startRecord("Test.wav", 1);
+  if(error != FR_OK)
   {
-
-    f_write(fp, temp, strlen(temp), &bw);	// Write data to the file
-    f_close(fp);// Close the file
+    serial.write(error);
+    serial.println("");
   }
 
-  // serial.write()
-  // while(i < 5)
-  // {
-  //   words = recorder.recordedWordsWaiting();
-  //   if (words >= 256)
-  //   {
-  //     serial.write(words);
-  //     serial.println("");
-  //
-  //     error = recorder.saveRecordedData(0);
-  //     if(error != FR_OK)
-  //     {
-  //       serial.print("Error saving data: ");
-  //       serial.write(error);
-  //       serial.println("");
-  //     }
-  //     i += 1;
-  //   }
-  // }
-  // recorder.saveRecordedData(1);
+  _delay_ms(50);
 
-  _delay_ms(100);
+  for(i = 0; i < 250; i++)
+  {
+    recorder.saveRecordedData(0);
+  }
+  serial.println("Loop done");
+  recorder.stopRecord();
+
+  // uint16_t left = recorder.recordedWordsWaiting();
+  // while (left)
+  // {
+  //   left = recorder.recordedWordsWaiting();
+  //   serial.write(left);
+  //   serial.println("");
+  //   // recorder.saveRecordedData(1);
+  // }
+
   serial.println("Done");
-  _delay_ms(100);
 
   return 0;
 }

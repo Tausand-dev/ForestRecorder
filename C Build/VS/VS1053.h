@@ -80,6 +80,10 @@
 #define VS1053_SCI_AICTRL2 0x0E
 #define VS1053_SCI_AICTRL3 0x0F
 
+#define VS1053_RECBUFFSIZE 512  // 64 or 128 bytes.
+#define VS1053_MWORDS 256
+#define VS1053_MBYTES 512
+
 class VS1053
 {
   public:
@@ -88,19 +92,26 @@ class VS1053
     void softReset(void);
     bool readyForData(void);
     uint16_t sciRead(uint8_t addr);
+
     void sciWrite(uint8_t addr, uint16_t data);
     void spiwrite(uint8_t d);
     void spiwrite(uint8_t *c, uint16_t num);
     uint8_t spiread(void);
 
     void loadPlugin(void);
-    void startRecord(bool mic);
+    void stopRecord(void);
+    uint8_t startRecord(const char *name, bool mic);
+    uint8_t saveRecordedData(uint8_t wrap);
 
     uint16_t recordedWordsWaiting(void);
     uint16_t recordedReadWord(void);
 
   private:
     SPI spi;
+    UINT bw;
+    FIL *fp;
+
+    uint8_t buffer[VS1053_RECBUFFSIZE];
 };
 
 #endif
