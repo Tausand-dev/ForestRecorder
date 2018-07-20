@@ -165,7 +165,7 @@ int main(void)
       _delay_ms(100);
   }
 
-  error = recorder.startRecord("Test.wav", 1);
+  error = recorder.startRecord("Test.wav", 8000, 1);
 
   while(recorder.recordedWordsWaiting() == 0){}
   DateTime now = RTC.now();

@@ -100,7 +100,7 @@ class VS1053
 
     void loadPlugin(void);
     void stopRecord(void);
-    uint8_t startRecord(const char *name, bool mic);
+    uint8_t startRecord(const char *name, uint16_t sample_rate, bool mic);
     uint8_t saveRecordedData(uint8_t wrap);
     uint8_t endPCMHeader(void);
 
@@ -111,7 +111,6 @@ class VS1053
     SPI spi;
     UINT bw;
     FIL *fp;
-    const char *file_name;
 
     uint8_t buffer[VS1053_RECBUFFSIZE];
 };

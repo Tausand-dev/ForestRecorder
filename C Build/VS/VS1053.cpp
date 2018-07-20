@@ -111,12 +111,12 @@ void VS1053::loadPlugin(void)
   sciWrite(VS1053_REG_WRAM, 0x040e);
 }
 
-uint8_t VS1053::startRecord(const char *name, bool mic)
+uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
 {
   softReset();
   while(! readyForData());
 
-  sciWrite(VS1053_SCI_AICTRL0, 16000U);
+  sciWrite(VS1053_SCI_AICTRL0, sample_rate);
   sciWrite(VS1053_SCI_AICTRL1, 0);
   sciWrite(VS1053_SCI_AICTRL2, 4096U);
   // sciWrite(VS1053_SCI_AICTRL3, 0);
@@ -134,8 +134,6 @@ uint8_t VS1053::startRecord(const char *name, bool mic)
   while (! readyForData() );
   loadPlugin();
   while (! readyForData() );
-
-  file_name = name;
 
   uint8_t error = f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
   /* write "RIFF" */
@@ -171,14 +169,14 @@ uint8_t VS1053::startRecord(const char *name, bool mic)
   buffer[23] = 0;
 
   /*sample rate*/
-  buffer[24] = 0x80;
-  buffer[25] = 0x3e;
+  buffer[24] = sample_rate;
+  buffer[25] = sample_rate >> 8;
   buffer[26] = 0;
   buffer[27] = 0;
 
   /*Byte rate*/
-  buffer[28] = 0x00;
-  buffer[29] = 0x7d;
+  buffer[28] = 2*sample_rate;
+  buffer[29] = (2*sample_rate >> 8);
   buffer[30] = 0;
   buffer[31] = 0;
 
