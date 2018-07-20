@@ -400,7 +400,7 @@ DRESULT mmc_disk_read (
 {
 	BYTE cmd;
 
-
+	FCLK_FAST();
 	if (!count) return RES_PARERR;
 	if (Stat & STA_NOINIT) return RES_NOTRDY;
 
@@ -432,6 +432,7 @@ DRESULT mmc_disk_write (
 	UINT count			/* Sector count (1..128) */
 )
 {
+	FCLK_FAST();
 	if (!count) return RES_PARERR;
 	if (Stat & STA_NOINIT) return RES_NOTRDY;
 	if (Stat & STA_PROTECT) return RES_WRPRT;
@@ -471,6 +472,7 @@ DRESULT mmc_disk_ioctl (
 	void *buff		/* Buffer to send/receive control data */
 )
 {
+	FCLK_FAST();
 	DRESULT res;
 	BYTE n, csd[16], *ptr = buff;
 	DWORD *dp, st, ed, csize;
@@ -635,7 +637,6 @@ DRESULT mmc_disk_ioctl (
 void mmc_disk_timerproc (void)
 {
 	BYTE n, s;
-
 
 	n = Timer1;				/* 100Hz decrement timer */
 	if (n) Timer1 = --n;
