@@ -8,6 +8,12 @@ uint8_t UART::last_buffer = 0;
 UART::UART(unsigned long int baud)
 {
   baudrate = baud;
+  last_buffer = 0;
+}
+
+void UART::flush(void)
+{
+  last_buffer = 0;
 }
 
 void UART::setUART(void)

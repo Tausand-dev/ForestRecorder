@@ -3,7 +3,6 @@ class UART
   public:
     unsigned long int baudrate;
     char buffer[10];
-    static uint8_t last_buffer;
 
     UART(unsigned long int);
     void setUART(void);
@@ -17,10 +16,12 @@ class UART
     void write(int);
     void write(long int);
 
+    void flush(void);
     void toBuffer(void);
     unsigned char read(void);
     uint8_t available(void);
 
   private:
+    static uint8_t last_buffer;
     unsigned char getChar(void);
 };

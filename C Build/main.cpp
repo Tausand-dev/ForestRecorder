@@ -19,6 +19,7 @@ volatile UINT Timer;	/* Performance timer (100Hz increment) */
 UINT bw;
 FIL *fp;
 FATFS *fs;
+uint8_t error;
 
 VS1053 recorder;
 
@@ -88,6 +89,13 @@ void serialHandler(void)
     {
       sendTime();
     }
+    else if (func == RESET_COMMAND)
+    {
+    }
+    else
+    {
+      serial.flush();
+    }
   }
 }
 
@@ -127,7 +135,7 @@ void initSystems(void)
   fp = (FIL *) malloc(sizeof (FIL));
   fs = (FATFS *) malloc(sizeof(FATFS));
 
-  uint8_t error = f_mount(fs, "", 1);
+  error = f_mount(fs, "", 1);
   if(error == FR_OK)
   {
     writeReset();
@@ -142,9 +150,16 @@ void initSystems(void)
 
 int main(void)
 {
+  uint8_t i;
   initSystems();
 
-  uint16_t i = 0, error;
+  _delay_ms(2000);
+  for(i = 0; i < 10; i++)
+  {
+      serialHandler();
+      _delay_ms(500);
+  }
+
   error = recorder.startRecord("Test.wav", 1);
   if(error != FR_OK)
   {
@@ -152,8 +167,14 @@ int main(void)
     serial.println("");
   }
 
-  for(i = 0; i < 0xFFFD; i++)
+  while(recorder.recordedWordsWaiting() == 0){}
+  DateTime now = RTC.now();
+  uint32_t current = now.unixtime();
+  uint32_t stop = current + 60; // 1 minute
+
+  while (current < stop)
   {
+    current = RTC.now().unixtime();
     error = recorder.saveRecordedData(0);
     if (error != FR_OK)
     {
