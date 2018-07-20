@@ -5,7 +5,7 @@ from datetime import datetime
 
 class RecorderSerial(Serial):
     def __init__(self, port, timeout = 2):
-        super(RecorderSerial, self).__init__(port, baudrate = 9600, timeout = timeout)
+        super(RecorderSerial, self).__init__(port, baudrate = 57600, timeout = timeout)
         if not self.testRecorder():
             raise(Exception("Could not verify recorder."))
 

@@ -3,20 +3,18 @@
 #include <stdlib.h>
 #include "serial.h"
 
-uint8_t UART::last_buffer = 0;
-
 UART::UART(unsigned long int baud)
 {
   baudrate = baud;
   last_buffer = 0;
 }
 
-void UART::flush(void)
+void UART::flush(void) volatile
 {
   last_buffer = 0;
 }
 
-void UART::setUART(void)
+void UART::setUART(void) volatile
 {
   int ubrr = ((F_CPU / 16 + baudrate / 2) / baudrate - 1);
   UBRR0H = (ubrr >> 8);
@@ -26,13 +24,13 @@ void UART::setUART(void)
   UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);    // Set frame: 8data, 1 stp
 }
 
-void UART::sendChar(char tosend)
+void UART::sendChar(char tosend) volatile
 {
   while (( UCSR0A & (1<<UDRE0))  == 0){};
   UDR0 = tosend;
 }
 
-void UART::print(const char *text)
+void UART::print(const char *text) volatile
 {
   uint8_t i;
   for(i = 0; i < strlen(text); i++)
@@ -41,54 +39,54 @@ void UART::print(const char *text)
   }
 }
 
-void UART::println(const char *text)
+void UART::println (const char *text) volatile
 {
   print(text);
   print("\n");
 }
 
-void UART::write(uint8_t val)
+void UART::write(uint8_t val) volatile
 {
   char buffer[4];
   itoa(val, buffer, 10);
   print(buffer);
 }
 
-void UART::write(uint16_t val)
+void UART::write(uint16_t val) volatile
 {
   char buffer[6];
   itoa(val, buffer, 10);
   print(buffer);
 }
 
-void UART::write(int val)
+void UART::write(int val) volatile
 {
   char buffer[6];
   itoa(val, buffer, 10);
   print(buffer);
 }
 
-void UART::write(uint32_t val)
+void UART::write(uint32_t val) volatile
 {
   char buffer[11];
   ltoa(val, buffer, 10);
   print(buffer);
 }
 
-void UART::write(long int val)
+void UART::write(long int val) volatile
 {
   char buffer[11];
   ltoa(val, buffer, 10);
   print(buffer);
 }
 
-void UART::toBuffer(void)
+void UART::toBuffer(void) volatile
 {
   buffer[last_buffer] = getChar();
   last_buffer += 1;
 }
 
-unsigned char UART::read(void)
+unsigned char UART::read(void) volatile
 {
   uint8_t i;
   char temp = buffer[0];
@@ -108,12 +106,12 @@ unsigned char UART::read(void)
   }
 }
 
-uint8_t UART::available(void)
+uint8_t UART::available(void) volatile
 {
   return last_buffer;
 }
 
-unsigned char UART::getChar(void)
+unsigned char UART::getChar(void) volatile
 {
   while (!(UCSR0A & _BV(RXC0)));
   return (char) UDR0;

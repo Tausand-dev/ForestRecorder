@@ -13,8 +13,8 @@
 #include "SD/mmc_avr.h"
 
 RTC_DS3231 RTC;
-UART serial(BAUDRATE);
 
+volatile UART serial(BAUDRATE);
 volatile UINT Timer;	/* Performance timer (100Hz increment) */
 UINT bw;
 FIL *fp;
@@ -38,6 +38,7 @@ ISR(TIMER0_COMPA_vect)
 
 DWORD get_fattime(void)
 {
+  RTC_DS3231 RTC;
   DateTime now = RTC.now();
 
 	/* Pack date and time into a DWORD variable */
@@ -91,9 +92,12 @@ void serialHandler(void)
     }
     else if (func == RESET_COMMAND)
     {
+
     }
     else
     {
+      serial.write(func);
+      serial.println("");
       serial.flush();
     }
   }
@@ -102,6 +106,7 @@ void serialHandler(void)
 void writeReset(void)
 {
   char buffer[10];
+
   DateTime now = RTC.now();
   ltoa(now.unixtime(), buffer, 10);
 
@@ -153,19 +158,14 @@ int main(void)
   uint8_t i;
   initSystems();
 
-  _delay_ms(2000);
-  for(i = 0; i < 10; i++)
+  _delay_ms(2500);
+  for(i = 0; i < 20; i++)
   {
       serialHandler();
-      _delay_ms(500);
+      _delay_ms(100);
   }
 
   error = recorder.startRecord("Test.wav", 1);
-  if(error != FR_OK)
-  {
-    serial.write(error);
-    serial.println("");
-  }
 
   while(recorder.recordedWordsWaiting() == 0){}
   DateTime now = RTC.now();
@@ -179,7 +179,7 @@ int main(void)
     if (error != FR_OK)
     {
       serial.write(error);
-      serial.println(" saving record\n");
+      serial.println(" saving record");
       break;
     }
   }
