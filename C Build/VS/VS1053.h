@@ -101,6 +101,7 @@ class VS1053
     void loadPlugin(void);
     void stopRecord(void);
     uint8_t startRecord(const char *name, uint16_t sample_rate, bool mic);
+    // uint8_t startRecord(const char *name, uint16_t sample_rate, bool mic, uint32_t expand_size);
     uint8_t saveRecordedData(uint8_t wrap);
     uint8_t endPCMHeader(void);
 

@@ -121,9 +121,10 @@ void writeReset(void)
 void initSystems(void)
 {
   /* Start 100Hz system timer with TC0 */
-  OCR0A = F_CPU / 1024 / 100 - 1;
+  OCR0A = (F_CPU / 1024 / 100 - 1);
   TCCR0A = (1 << WGM01);
-  TCCR0B = 0b101;
+  TCCR0B = (1 << CS02 | 1 << CS00);
+  // TCCR0B = (1 << CS02);
   TIMSK0 = (1 << OCIE0A);
 
   sei();
@@ -153,24 +154,13 @@ void initSystems(void)
   }
 }
 
-int main(void)
+void makeRecord(const char *name, uint16_t sample_rate, uint16_t seconds)
 {
-  uint8_t i;
-  initSystems();
-
-  _delay_ms(2500);
-  for(i = 0; i < 20; i++)
-  {
-      serialHandler();
-      _delay_ms(100);
-  }
-
-  error = recorder.startRecord("Test.wav", 8000, 1);
-
+  error = recorder.startRecord(name, sample_rate, 1);
   while(recorder.recordedWordsWaiting() == 0){}
   DateTime now = RTC.now();
   uint32_t current = now.unixtime();
-  uint32_t stop = current + 60; // 1 minute
+  uint32_t stop = current + seconds; // 1 minute
 
   while (current < stop)
   {
@@ -183,9 +173,26 @@ int main(void)
       break;
     }
   }
-
   serial.println("Loop done");
   recorder.stopRecord();
+}
+
+int main(void)
+{
+  uint8_t i;
+  initSystems();
+
+  _delay_ms(2500);
+  for(i = 0; i < 20; i++)
+  {
+      serialHandler();
+      _delay_ms(100);
+  }
+
+  makeRecord("Test8.wav", 8000, 60);
+  makeRecord("Test16.wav", 16000, 60);
+  // error = recorder.startRecord("Test.wav", 8000, 1, EXPAND_SIZE);
+
 
   serial.println("Done");
 

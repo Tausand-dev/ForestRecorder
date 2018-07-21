@@ -111,6 +111,7 @@ void VS1053::loadPlugin(void)
   sciWrite(VS1053_REG_WRAM, 0x040e);
 }
 
+// uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic, uint32_t expand_size)
 uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
 {
   softReset();
@@ -123,11 +124,15 @@ uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
   sciWrite(VS1053_SCI_AICTRL3, (1 << 2));
   uint16_t config = 0;
 
-  config = VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM;
+  config = VS1053_MODE_SM_RESET;
   // config = VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_SDINEW;
-  if (! mic)
+  if (mic)
   {
-    config |= VS1053_MODE_SM_LINE1;
+    config |= VS1053_MODE_SM_ADPCM;
+  }
+  else
+  {
+    config |= VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_LINE1;
   }
 
   sciWrite(VS1053_REG_MODE, config);
@@ -135,7 +140,6 @@ uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
   loadPlugin();
   while (! readyForData() );
 
-  uint8_t error = f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
   /* write "RIFF" */
   buffer[0] = 'R';
   buffer[1] = 'I';
@@ -194,7 +198,17 @@ uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
   buffer[38] = 't';
   buffer[39] = 'a';
 
+  uint8_t error;
+  error = f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
+  // error = f_expand(fp, expand_size, 1);
+  // if (error != FR_OK)
+  // {
+  //   return error;
+  // }
+  //
+  // f_lseek(fp, 0);
   f_write(fp, buffer, 44, &bw);
+  f_sync(fp);
 
   return error;
 }
@@ -244,10 +258,11 @@ uint8_t VS1053::saveRecordedData(uint8_t wrap)
         addr = 0;
         f_write(fp, buffer, VS1053_RECBUFFSIZE, &bw);
         error = f_sync(fp);
-        if (error != FR_OK)
-        {
-          return error;
-        }
+      }
+
+      if (error != FR_OK)
+      {
+        return error;
       }
     }
     if (addr != 0)
@@ -305,6 +320,7 @@ uint8_t VS1053::endPCMHeader(void)
     f_sync(fp);
   }
 
+  // f_truncate(fp);
   f_close(fp);
 
   return error;
