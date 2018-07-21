@@ -16,10 +16,11 @@ RTC_DS3231 RTC;
 
 volatile UART serial(BAUDRATE);
 volatile UINT Timer;	/* Performance timer (100Hz increment) */
+volatile uint8_t error, record;
 UINT bw;
 FIL *fp;
 FATFS *fs;
-uint8_t error;
+
 
 VS1053 recorder;
 
@@ -34,6 +35,12 @@ ISR(TIMER0_COMPA_vect)
 {
 	Timer;			/* Performance counter for this module */
 	disk_timerproc();	/* Drive timer procedure of low level disk I/O module */
+}
+
+ISR(INT0_vect)
+{
+  record = 0;
+  serial.println("Interrupted");
 }
 
 DWORD get_fattime(void)
@@ -127,6 +134,9 @@ void initSystems(void)
   // TCCR0B = (1 << CS02);
   TIMSK0 = (1 << OCIE0A);
 
+  EICRA |= (1 << ISC01);
+  EIMSK |= (1 << EIMSK);
+
   sei();
 
   RTC.begin();
@@ -158,13 +168,17 @@ void makeRecord(const char *name, uint16_t sample_rate, uint16_t seconds)
 {
   error = recorder.startRecord(name, sample_rate, 1);
   while(recorder.recordedWordsWaiting() == 0){}
-  DateTime now = RTC.now();
-  uint32_t current = now.unixtime();
-  uint32_t stop = current + seconds; // 1 minute
 
-  while (current < stop)
+  DateTime next = RTC.now().unixtime() + seconds;
+
+  RTC.clearAlarm(1);
+  RTC.setAlarm(ALM1_MATCH_DATE, next.second(), next.minute(), next.hour(), next.day());
+  RTC.alarmInterrupt(1, true);
+
+  record = 1;
+
+  while (record)
   {
-    current = RTC.now().unixtime();
     error = recorder.saveRecordedData(0);
     if (error != FR_OK)
     {
@@ -175,6 +189,7 @@ void makeRecord(const char *name, uint16_t sample_rate, uint16_t seconds)
   }
   serial.println("Loop done");
   recorder.stopRecord();
+  _delay_ms(1000);
 }
 
 int main(void)

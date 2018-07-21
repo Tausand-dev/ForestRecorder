@@ -24,7 +24,7 @@ class RecorderSerial(Serial):
         for i in range(10):
             line = self.readline()
             if len(line):
-                data.append(line)
+                data.append(line.decode())
             else:
                 break
         return data
@@ -81,7 +81,9 @@ def to32(bytes):
 now = datetime.now()
 unix = int((now - datetime(1970,1,1)).total_seconds())
 
-
 serial.setTime(unix)
 
-print(serial.getTime())
+while True:
+    line = serial.readline().decode().replace("\n", "")
+    if len(line):
+        print(line)

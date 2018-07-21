@@ -108,6 +108,13 @@ static uint8_t bin2bcd (uint8_t val) { return val + 6 * (val / 10); }
 bool RTC_DS3231::begin(void)
 {
   twi_init_master();
+
+  armAlarm(1, false);
+  clearAlarm(1);
+  alarmInterrupt(1, false);
+  armAlarm(2, false);
+  clearAlarm(2);
+  alarmInterrupt(2, false);
   return true;
 }
 
