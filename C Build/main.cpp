@@ -57,6 +57,15 @@ DWORD get_fattime(void)
 			| ((DWORD)now.second() >> 1);
 }
 
+void reset(void)
+{
+  WDTCSR |= (1 << WDE) | (1 << WDP1) | (1 << WDP2);
+  while(1)
+  {
+
+  }
+}
+
 void sendTime(void)
 {
   DateTime now = RTC.now();
@@ -134,8 +143,11 @@ void initSystems(void)
   // TCCR0B = (1 << CS02);
   TIMSK0 = (1 << OCIE0A);
 
+  // Alarm interrupt
   EICRA |= (1 << ISC01);
   EIMSK |= (1 << EIMSK);
+
+  // Reset
 
   sei();
 
@@ -146,6 +158,7 @@ void initSystems(void)
   if (! recorder.begin())
   {
     serial.println("VS1053 init error");
+    reset();
   }
 
   fp = (FIL *) malloc(sizeof (FIL));
@@ -161,6 +174,7 @@ void initSystems(void)
     serial.print("SD Card error: ");
     serial.write(error);
     serial.println("");
+    reset();
   }
 }
 
@@ -184,6 +198,7 @@ void makeRecord(const char *name, uint16_t sample_rate, uint16_t seconds)
     {
       serial.write(error);
       serial.println(" saving record");
+      reset();
       break;
     }
   }

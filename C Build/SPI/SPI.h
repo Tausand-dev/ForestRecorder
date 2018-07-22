@@ -11,7 +11,10 @@ class SPI
     SPI(void);
     void begin(void);
     void stop(void);
+    void setSpeed(uint8_t);
     uint8_t transfer(uint8_t);
+  private:
+    uint8_t speed;
 };
 
 uint8_t digitalRead(volatile uint8_t *pin, uint8_t n);

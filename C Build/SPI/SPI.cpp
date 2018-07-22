@@ -21,14 +21,28 @@ void digitalWrite(volatile uint8_t *port, uint8_t n, uint8_t val)
 
 SPI::SPI(void)
 {
+  speed = 0;
+}
 
+void SPI::setSpeed(uint8_t s)
+{
+  speed = s;
 }
 
 void SPI::begin(void)
 {
   DDRB &= ~(1 << MISO);
   DDRB |= (1 << MOSI) | (1 << SCK);              //Set MOSI, SCK as Output
-  SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0); //Enable SPI, Set as Master, Prescaler: Fosc/16
+
+  if (speed)
+  {
+    SPCR = (1 << SPE) | (1 << MSTR);
+  }
+  else
+  {
+    SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0); //Enable SPI, Set as Master, Prescaler: Fosc/16
+  }
+
   SPSR |= (1 << SPI2X);
 }
 

@@ -34,6 +34,7 @@ void VS1053::reset()
 {
   // TODO: http://www.vlsi.fi/player_vs1011_1002_1003/modularplayer/vs10xx_8c.html#a3
   // hardware reset
+  spi.setSpeed(0);
   digitalWrite(&RESET_PORT, RESET, 0);
   _delay_ms(100);
   digitalWrite(&RESET_PORT, RESET, 1);
@@ -43,8 +44,6 @@ void VS1053::reset()
   _delay_ms(100);
   softReset();
   _delay_ms(100);
-
-  sciWrite(VS1053_REG_CLOCKF, 0x6000);
 }
 
 uint8_t VS1053::begin(void)
@@ -117,22 +116,27 @@ uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
   softReset();
   while(! readyForData());
 
+  sciWrite(VS1053_REG_CLOCKF, 0x6000);
+  spi.setSpeed(1);
+  _delay_ms(100);
+  while(! readyForData());
+
   sciWrite(VS1053_SCI_AICTRL0, sample_rate);
-  sciWrite(VS1053_SCI_AICTRL1, 0);
-  sciWrite(VS1053_SCI_AICTRL2, 4096U);
+  sciWrite(VS1053_SCI_AICTRL1, 1);
+  sciWrite(VS1053_SCI_AICTRL2, 0);
   // sciWrite(VS1053_SCI_AICTRL3, 0);
-  sciWrite(VS1053_SCI_AICTRL3, (1 << 2));
+  sciWrite(VS1053_SCI_AICTRL3, 2 | (1 << 2));
   uint16_t config = 0;
 
-  config = VS1053_MODE_SM_RESET;
+  // config = VS1053_MODE_SM_RESET;
   // config = VS1053_MODE_SM_RESET | VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_SDINEW;
   if (mic)
   {
-    config |= VS1053_MODE_SM_ADPCM;
+    config = VS1053_MODE_SM_ADPCM;
   }
   else
   {
-    config |= VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_LINE1;
+    config = VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_LINE1;
   }
 
   sciWrite(VS1053_REG_MODE, config);
