@@ -74,6 +74,88 @@ uint16_t VS1053::recordedReadWord(void)
   return sciRead(VS1053_REG_HDAT0);
 }
 
+uint8_t VS1053::readPlugin(char *plugname)
+{
+  uint8_t error;
+  error = f_open(fp, name, FA_READ);
+
+  if (error != FR_OK)
+  {
+    // Serial.println("Couldn't open the plugin file");
+    // Serial.println(plugname);
+    return error;
+  }
+
+  else if((f_readByte(fp) != 'P') ||
+        (f_readByte(fp) != '&') ||
+        (f_readByte(fp) != 'H'))
+    return 0xFF;
+
+  uint16_t type;
+
+ // Serial.print("Patch size: "); Serial.println(patchsize);
+  while ((type = f_readByte(fp)) >= 0)
+  {
+    uint16_t offsets[] = {0x8000UL, 0x0, 0x4000UL};
+    uint16_t addr, len;
+
+    if (type >= 4)
+    {
+      f_close(fp);
+      return 0xFF;
+    }
+
+    len = f_readByte(fp);    len <<= 8;
+    len |= f_readByte(fp) & ~1;
+    addr = f_readByte(fp);    addr <<= 8;
+    addr |= f_readByte(fp);
+
+    if (type == 3)
+    {
+      // execute rec!
+      f_close(fp);
+      return addr;
+    }
+
+    // set address
+    sciWrite(VS1053_REG_WRAMADDR, addr + offsets[type]);
+    // write data
+    while(len -= 2)
+    {
+      uint16_t data;
+      data = f_readByte(fp);    data <<= 8;
+      data |= f_readByte(fp);
+      sciWrite(VS1053_REG_WRAM, data);
+    }
+  }
+
+  f_close(fp);
+  return 0xFF;
+}
+
+bool VS1053::prepareRecordOgg(char *plugname)
+{
+  sciWrite(VS1053_REG_CLOCKF, 0xC000);  // set max clock
+  _delay_ms(1);    while (! readyForData() );
+
+  sciWrite(VS1053_REG_BASS, 0);  // clear Bass
+
+  softReset();
+  _delay_ms(1);    while (! readyForData() );
+
+  sciWrite(VS1053_SCI_AIADDR, 0);
+  // disable all interrupts except SCI
+  sciWrite(VS1053_REG_WRAMADDR, VS1053_INT_ENABLE);
+  sciWrite(VS1053_REG_WRAM, 0x02);
+
+  int pluginStartAddr = readPlugin(plugname);
+  if (pluginStartAddr == 0xFF) return false;
+  // Serial.print("Plugin at $"); Serial.println(pluginStartAddr, HEX);
+  if (pluginStartAddr != 0x34) return false;
+
+  return true;
+}
+
 void VS1053::loadPlugin(void)
 {
   sciWrite(VS1053_REG_WRAMADDR, 0x8010);
@@ -111,7 +193,7 @@ void VS1053::loadPlugin(void)
 }
 
 // uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic, uint32_t expand_size)
-uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
+uint8_t VS1053::startRecordWAV(const char *name, uint16_t sample_rate, bool mic)
 {
   softReset();
   while(! readyForData());
@@ -217,11 +299,63 @@ uint8_t VS1053::startRecord(const char *name, uint16_t sample_rate, bool mic)
   return error;
 }
 
+uint8_t VS1053::startRecordOgg(const char *name, uint16_t sample_rate, bool mic)
+{
+  /* Set VS1053 mode bits as instructed in the VS1053b Ogg Vorbis Encoder
+     manual. Note: for microphone input, leave SMF_LINE1 unset! */
+
+  uint8_t error;
+  error = f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
+  if (error != FR_OK)
+  {
+    return error;
+  }
+
+  error = prepareRecordOgg("v44k1q05.img");
+  if(! error)
+  {
+    return error;
+  }
+
+  sciWrite(VS1053_REG_CLOCKF, 0x6000);
+  spi.setSpeed(1);
+  _delay_ms(100);
+  while(! readyForData());
+
+  if (mic)
+  {
+    sciWrite(VS1053_REG_MODE, VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_SDINEW);
+  }
+  else
+  {
+    sciWrite(VS1053_REG_MODE, VS1053_MODE_SM_LINE1 |
+	     VS1053_MODE_SM_ADPCM | VS1053_MODE_SM_SDINEW);
+  }
+  sciWrite(VS1053_SCI_AICTRL0, 1024);
+  /* Rec level: 1024 = 1. If 0, use AGC */
+  sciWrite(VS1053_SCI_AICTRL1, 1024);
+  /* Maximum AGC level: 1024 = 1. Only used if SCI_AICTRL1 is set to 0. */
+  sciWrite(VS1053_SCI_AICTRL2, 0);
+  /* Miscellaneous bits that also must be set before recording. */
+  sciWrite(VS1053_SCI_AICTRL3, 0);
+
+  sciWrite(VS1053_SCI_AIADDR, 0x34);
+  delay(1);    while (! readyForData() );
+
+  return error;
+}
+
 void VS1053::stopRecord(void)
 {
   sciWrite(VS1053_SCI_AICTRL3, 1);
   while (! readyForData() );
   saveRecordedData(1);
+}
+
+void VS1053::stopRecordWAV(void)
+{
+  stopRecord();
+  endHeaderWAV();
 }
 
 uint8_t VS1053::saveRecordedData(uint8_t wrap)
@@ -289,12 +423,11 @@ uint8_t VS1053::saveRecordedData(uint8_t wrap)
         return error;
       }
     }
-    return endPCMHeader();
   }
   return FR_OK;
 }
 
-uint8_t VS1053::endPCMHeader(void)
+uint8_t VS1053::endHeaderWAV(void)
 {
   uint8_t error;
   FSIZE_t size = f_size(fp);

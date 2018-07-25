@@ -98,12 +98,17 @@ class VS1053
     void spiwrite(uint8_t *c, uint16_t num);
     uint8_t spiread(void);
 
+    uint8_t readPlugin(char *plugname);
+    bool prepareRecordOgg(char *plugname);
+    
     void loadPlugin(void);
     void stopRecord(void);
-    uint8_t startRecord(const char *name, uint16_t sample_rate, bool mic);
+    void stopRecordWAV(void);
+    uint8_t startRecordWAV(const char *name, uint16_t sample_rate, bool mic);
+    uint8_t startRecordOgg(const char *name, uint16_t sample_rate, bool mic);
     // uint8_t startRecord(const char *name, uint16_t sample_rate, bool mic, uint32_t expand_size);
     uint8_t saveRecordedData(uint8_t wrap);
-    uint8_t endPCMHeader(void);
+    uint8_t endHeaderWAV(void);
 
     uint16_t recordedWordsWaiting(void);
     uint16_t recordedReadWord(void);

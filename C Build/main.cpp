@@ -178,9 +178,9 @@ void initSystems(void)
   }
 }
 
-void makeRecord(const char *name, uint16_t sample_rate, uint16_t seconds)
+void makeRecordWAV(const char *name, uint16_t sample_rate, uint16_t seconds)
 {
-  error = recorder.startRecord(name, sample_rate, 1);
+  error = recorder.startRecordWAV(name, sample_rate, 1);
   while(recorder.recordedWordsWaiting() == 0){}
 
   DateTime next = RTC.now().unixtime() + seconds;
@@ -203,7 +203,7 @@ void makeRecord(const char *name, uint16_t sample_rate, uint16_t seconds)
     }
   }
   serial.println("Loop done");
-  recorder.stopRecord();
+  recorder.stopRecordWAV();
   _delay_ms(1000);
 }
 
@@ -219,8 +219,8 @@ int main(void)
       _delay_ms(100);
   }
 
-  makeRecord("Test8.wav", 8000, 60);
-  makeRecord("Test16.wav", 16000, 60);
+  makeRecordWAV("Test8.wav", 8000, 60);
+  makeRecordWAV("Test16.wav", 16000, 60);
   // error = recorder.startRecord("Test.wav", 8000, 1, EXPAND_SIZE);
 
 

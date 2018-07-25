@@ -22,6 +22,8 @@
 #ifndef FF_DEFINED
 #define FF_DEFINED	63463	/* Revision ID */
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -250,6 +252,8 @@ typedef enum {
 
 /*--------------------------------------------------------------*/
 /* FatFs module application interface                           */
+
+uint8_t f_readByte(FIL *fp);
 
 FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);				/* Open or create a file */
 FRESULT f_close (FIL* fp);											/* Close an open file object */

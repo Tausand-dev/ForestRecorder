@@ -22,6 +22,15 @@
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
 
+uint8_t f_readByte(FIL *fp)
+{
+	uint8_t buff[1];
+	UINT br;
+
+	f_read(fp, buff, 1, &br);
+	return buff[0];
+}
+
 
 /*--------------------------------------------------------------------------
 
@@ -6530,4 +6539,3 @@ FRESULT f_setcp (
 	return FR_OK;
 }
 #endif	/* FF_CODE_PAGE == 0 */
-
