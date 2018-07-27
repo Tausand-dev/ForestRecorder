@@ -21,7 +21,6 @@ UINT bw;
 FIL *fp;
 FATFS *fs;
 
-
 VS1053 recorder;
 
 ISR(__vector_default){}
@@ -62,7 +61,6 @@ void reset(void)
   WDTCSR |= (1 << WDE) | (1 << WDP1) | (1 << WDP2);
   while(1)
   {
-
   }
 }
 
@@ -136,6 +134,8 @@ void writeReset(void)
 
 void initSystems(void)
 {
+  WDTCSR = 0;
+  MCUSR &= ~(1 << WDRF);
   /* Start 100Hz system timer with TC0 */
   OCR0A = (F_CPU / 1024 / 100 - 1);
   TCCR0A = (1 << WGM01);
@@ -147,19 +147,20 @@ void initSystems(void)
   EICRA |= (1 << ISC01);
   EIMSK |= (1 << EIMSK);
 
-  // Reset
+  serial.setUART();
 
   sei();
+  serial.println("Tausand's Forest Recorder");
 
   RTC.begin();
-  serial.setUART();
-  serial.println("Tausand's Forest Recorder");
+  serial.println("RTC began");
 
   if (! recorder.begin())
   {
     serial.println("VS1053 init error");
     reset();
   }
+  serial.println("Recorder init");
 
   fp = (FIL *) malloc(sizeof (FIL));
   fs = (FATFS *) malloc(sizeof(FATFS));
@@ -207,23 +208,52 @@ void makeRecordWAV(const char *name, uint16_t sample_rate, uint16_t seconds)
   _delay_ms(1000);
 }
 
+void makeRecordOgg(const char *name, uint16_t seconds)
+{
+  error = recorder.startRecordOgg(name, 0, 1);
+  while(recorder.recordedWordsWaiting() == 0){}
+
+  DateTime next = RTC.now().unixtime() + seconds;
+
+  RTC.clearAlarm(1);
+  RTC.setAlarm(ALM1_MATCH_DATE, next.second(), next.minute(), next.hour(), next.day());
+  RTC.alarmInterrupt(1, true);
+
+  record = 1;
+
+  while (record)
+  {
+    error = recorder.saveRecordedData(0);
+    if (error != FR_OK)
+    {
+      serial.write(error);
+      serial.println(" saving record");
+      reset();
+      break;
+    }
+  }
+  serial.println("Loop done");
+  recorder.stopRecord();
+  _delay_ms(1000);
+}
+
 int main(void)
 {
-  uint8_t i;
+  // uint8_t i;
   initSystems();
 
-  _delay_ms(2500);
-  for(i = 0; i < 20; i++)
-  {
-      serialHandler();
-      _delay_ms(100);
-  }
+  // _delay_ms(2500);
+  // for(i = 0; i < 20; i++)
+  // {
+  //     serialHandler();
+  //     _delay_ms(100);
+  // }
 
-  makeRecordWAV("Test8.wav", 8000, 60);
-  makeRecordWAV("Test16.wav", 16000, 60);
-  // error = recorder.startRecord("Test.wav", 8000, 1, EXPAND_SIZE);
+  // makeRecordWAV("Test8.wav", 8000, 60);
+  // makeRecordWAV("Test16.wav", 16000, 60);
 
-
+  // makeRecordOgg("Test.ogg", 1);
+  //
   serial.println("Done");
 
   return 0;

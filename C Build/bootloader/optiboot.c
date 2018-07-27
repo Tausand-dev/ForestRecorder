@@ -251,9 +251,11 @@ void appStart() __attribute__ ((naked));
 #endif
 
 /* main program starts here */
-int main(void) {
+int main(void)
+{
   uint8_t ch;
-
+  WDTCSR = 0;
+  MCUSR &= ~(1 << WDRF);
   /*
    * Making these local and in registers prevents the need for initializing
    * them, and also saves space because code no longer stores to memory.
@@ -572,7 +574,7 @@ uint8_t getch(void) {
        */
     watchdogReset();
   }
-  
+
   ch = UDR0;
 #endif
 

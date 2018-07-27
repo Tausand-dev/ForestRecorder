@@ -98,9 +98,9 @@ class VS1053
     void spiwrite(uint8_t *c, uint16_t num);
     uint8_t spiread(void);
 
-    uint8_t readPlugin(char *plugname);
-    bool prepareRecordOgg(char *plugname);
-    
+    uint8_t readPlugin(const char *plugname);
+    bool prepareRecordOgg(const char *plugname);
+
     void loadPlugin(void);
     void stopRecord(void);
     void stopRecordWAV(void);

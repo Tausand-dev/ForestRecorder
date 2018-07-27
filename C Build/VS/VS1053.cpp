@@ -74,10 +74,10 @@ uint16_t VS1053::recordedReadWord(void)
   return sciRead(VS1053_REG_HDAT0);
 }
 
-uint8_t VS1053::readPlugin(char *plugname)
+uint8_t VS1053::readPlugin(const char *plugname)
 {
   uint8_t error;
-  error = f_open(fp, name, FA_READ);
+  error = f_open(fp, plugname, FA_READ);
 
   if (error != FR_OK)
   {
@@ -133,7 +133,7 @@ uint8_t VS1053::readPlugin(char *plugname)
   return 0xFF;
 }
 
-bool VS1053::prepareRecordOgg(char *plugname)
+bool VS1053::prepareRecordOgg(const char *plugname)
 {
   sciWrite(VS1053_REG_CLOCKF, 0xC000);  // set max clock
   _delay_ms(1);    while (! readyForData() );
@@ -340,7 +340,7 @@ uint8_t VS1053::startRecordOgg(const char *name, uint16_t sample_rate, bool mic)
   sciWrite(VS1053_SCI_AICTRL3, 0);
 
   sciWrite(VS1053_SCI_AIADDR, 0x34);
-  delay(1);    while (! readyForData() );
+  _delay_ms(1);    while (! readyForData() );
 
   return error;
 }
