@@ -19,12 +19,14 @@ TARGET = $(PRJ).hex
 MCU = atmega328p
 CFLAGS += '-DLED_START_FLASHES=3' '-DBAUD_RATE=115200'
 AVR_FREQ = 16000000L
-LDSECTIONS  = -Wl,--section-start=.text=0x7be4
+#LDSECTIONS  = -Wl,--section-start=.text=0x7be4
+LDSECTIONS  = -Wl,--section-start=.text=0x7c00
+
 
 AVRDUDE = sudo avrdude -C avrdude_gpio.conf -c pi_1 -p $(MCU)
 
 LFU = 0xFF
-HFU = 0xD6
+HFU = 0xD4
 EFU = 0x05
 ULCK = 0x3F
 LCK = 0x0F
@@ -42,9 +44,9 @@ clean:
 	rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex
 
 flash: all
-	$(AVRDUDE) -U lock:w:$(ULCK):m 
+	$(AVRDUDE) -U lock:w:$(ULCK):m -U lfuse:w:$(LFU):m -U hfuse:w:$(HFU):m -U efuse:w:$(EFU):m
 	$(AVRDUDE) -U flash:w:$(PRJ).hex:i
-	$(AVRDUDE) -U lock:w:$(LCK):m 
+	$(AVRDUDE) -U lock:w:$(LCK):m -U lfuse:w:$(LFU):m -U hfuse:w:$(HFU):m -U efuse:w:$(EFU):m
 
 # write fuses to mcu
 fuse:
