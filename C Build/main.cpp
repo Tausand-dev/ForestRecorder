@@ -8,9 +8,9 @@
 #include "RTC/rtc.h"
 #include "RTC/twi.h"
 #include "VS/VS1053.h"
-#include "main.h"
 #include "SD/ff.h"
 #include "SD/mmc_avr.h"
+#include "main.h"
 
 RTC_DS3231 RTC;
 
@@ -22,6 +22,38 @@ FIL *fp;
 FATFS *fs;
 
 VS1053 recorder;
+
+int main(void)
+{
+  uint8_t i;
+  initSystems();
+
+  /* set clock time */
+  _delay_ms(2500);
+  for(i = 0; i < 20; i++)
+  {
+      serialHandler();
+      _delay_ms(100);
+  }
+
+  // f_open(fp, "v44k1q05.img", FA_READ);
+  //
+  // for(i = 0; i < 10; i++)
+  // {
+  //   error = f_readByte(fp);
+  //   serial.write(error);
+  //   serial.println("");
+  // }
+
+  // makeRecordWAV("Test8.wav", 8000, 60);
+  // makeRecordWAV("Test16.wav", 16000, 60);
+
+  makeRecordOgg("Test.ogg", 60);
+  //
+  serial.println("Done");
+
+  return 0;
+}
 
 ISR(__vector_default){}
 
@@ -56,8 +88,30 @@ DWORD get_fattime(void)
 			| ((DWORD)now.second() >> 1);
 }
 
-void reset(void)
+void ledFlicker(uint8_t n)
 {
+  uint8_t i;
+  for(i = 0; i < n; i++)
+  {
+    LED_PORT |= (1 << LED_PIN);
+    _delay_ms(LED_DELAY);
+    LED_PORT &= ~(1 << LED_PIN);
+    _delay_ms(LED_DELAY);
+  }
+}
+
+void reset(uint8_t error)
+{
+  serial.print("Error: ");
+  serial.write(error);
+  serial.println("");
+
+  ledFlicker(error);
+
+  writeReset(error);
+
+  _delay_ms(2500);
+  WDTCSR = WDCE;
   WDTCSR |= (1 << WDE) | (1 << WDP1) | (1 << WDP2);
   while(1)
   {
@@ -117,9 +171,12 @@ void serialHandler(void)
   }
 }
 
-void writeReset(void)
+void writeReset(uint8_t code)
 {
   char buffer[10];
+  char code_str[10];
+
+  itoa(code, code_str, 10);
 
   DateTime now = RTC.now();
   ltoa(now.unixtime(), buffer, 10);
@@ -127,6 +184,8 @@ void writeReset(void)
   if (f_open(fp, "resets.dat", FA_WRITE | FA_OPEN_APPEND) == FR_OK)
   {
     f_write(fp, buffer, 10, &bw);
+    f_write(fp, " ", 1, &bw);
+    f_write(fp, code_str, 2, &bw);
     f_write(fp, "\n", 1, &bw);
     f_close(fp);
   }
@@ -134,8 +193,6 @@ void writeReset(void)
 
 void initSystems(void)
 {
-  WDTCSR = 0;
-  MCUSR &= ~(1 << WDRF);
   /* Start 100Hz system timer with TC0 */
   OCR0A = (F_CPU / 1024 / 100 - 1);
   TCCR0A = (1 << WGM01);
@@ -144,8 +201,12 @@ void initSystems(void)
   TIMSK0 = (1 << OCIE0A);
 
   // Alarm interrupt
-  EICRA |= (1 << ISC01);
-  EIMSK |= (1 << EIMSK);
+  // EICRA |= (1 << ISC01);
+  // EIMSK |= (1 << EIMSK);
+
+  PORTD |= (1 << PD2); //pull up INT0
+
+  LED_DDR |= (1 << LED_PIN);
 
   serial.setUART();
 
@@ -153,30 +214,34 @@ void initSystems(void)
   serial.println("Tausand's Forest Recorder");
 
   RTC.begin();
-  serial.println("RTC began");
 
   if (! recorder.begin())
   {
-    serial.println("VS1053 init error");
-    reset();
+    reset(VS1053_ERROR);
   }
-  serial.println("Recorder init");
 
   fp = (FIL *) malloc(sizeof (FIL));
   fs = (FATFS *) malloc(sizeof(FATFS));
 
   error = f_mount(fs, "", 1);
-  if(error == FR_OK)
+  if(error != FR_OK)
   {
-    writeReset();
+    reset(SD_ERROR);
   }
-  else
-  {
-    serial.print("SD Card error: ");
-    serial.write(error);
-    serial.println("");
-    reset();
-  }
+
+  ledFlicker(1);
+}
+
+void activateINT0(void)
+{
+  EICRA |= (1 << ISC01);
+  EIMSK |= (1 << EIMSK);
+}
+
+void deactivateINT0(void)
+{
+  EICRA &= ~(1 << ISC01);
+  EIMSK &= ~(1 << EIMSK);
 }
 
 void makeRecordWAV(const char *name, uint16_t sample_rate, uint16_t seconds)
@@ -190,6 +255,8 @@ void makeRecordWAV(const char *name, uint16_t sample_rate, uint16_t seconds)
   RTC.setAlarm(ALM1_MATCH_DATE, next.second(), next.minute(), next.hour(), next.day());
   RTC.alarmInterrupt(1, true);
 
+  activateINT0();
+
   record = 1;
 
   while (record)
@@ -197,12 +264,11 @@ void makeRecordWAV(const char *name, uint16_t sample_rate, uint16_t seconds)
     error = recorder.saveRecordedData(0);
     if (error != FR_OK)
     {
-      serial.write(error);
-      serial.println(" saving record");
-      reset();
+      reset(WRITE_ERROR);
       break;
     }
   }
+
   serial.println("Loop done");
   recorder.stopRecordWAV();
   _delay_ms(1000);
@@ -211,6 +277,11 @@ void makeRecordWAV(const char *name, uint16_t sample_rate, uint16_t seconds)
 void makeRecordOgg(const char *name, uint16_t seconds)
 {
   error = recorder.startRecordOgg(name, 0, 1);
+  if(error == 4)
+  {
+    reset(READ_PLUGIN_ERROR);
+  }
+
   while(recorder.recordedWordsWaiting() == 0){}
 
   DateTime next = RTC.now().unixtime() + seconds;
@@ -219,42 +290,22 @@ void makeRecordOgg(const char *name, uint16_t seconds)
   RTC.setAlarm(ALM1_MATCH_DATE, next.second(), next.minute(), next.hour(), next.day());
   RTC.alarmInterrupt(1, true);
 
+  activateINT0();
   record = 1;
 
-  while (record)
+  while (record > 0)
   {
     error = recorder.saveRecordedData(0);
     if (error != FR_OK)
     {
       serial.write(error);
       serial.println(" saving record");
-      reset();
+      reset(WRITE_ERROR);
       break;
     }
   }
+  deactivateINT0();
   serial.println("Loop done");
-  recorder.stopRecord();
+  // recorder.stopRecord();
   _delay_ms(1000);
-}
-
-int main(void)
-{
-  // uint8_t i;
-  initSystems();
-
-  // _delay_ms(2500);
-  // for(i = 0; i < 20; i++)
-  // {
-  //     serialHandler();
-  //     _delay_ms(100);
-  // }
-
-  // makeRecordWAV("Test8.wav", 8000, 60);
-  // makeRecordWAV("Test16.wav", 16000, 60);
-
-  // makeRecordOgg("Test.ogg", 1);
-  //
-  serial.println("Done");
-
-  return 0;
 }

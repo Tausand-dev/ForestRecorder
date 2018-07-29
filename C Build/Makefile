@@ -48,7 +48,7 @@ EXT = RTC/ Serial/ SD/ VS/ SPI/ .
 # include path
 INCLUDE := $(foreach dir, $(EXT), -I$(dir))
 # c flags
-CFLAGS    = -Wall -Os -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE)
+CFLAGS    = -Wall -O2 -DF_CPU=$(CLK) -mmcu=$(MCU) $(INCLUDE)
 # any aditional flags for c++
 CPPFLAGS =
 

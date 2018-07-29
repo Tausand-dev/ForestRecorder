@@ -89,7 +89,7 @@ uint8_t VS1053::readPlugin(const char *plugname)
   else if((f_readByte(fp) != 'P') ||
         (f_readByte(fp) != '&') ||
         (f_readByte(fp) != 'H'))
-    return 0xFF;
+    return 255;
 
   uint16_t type;
 
@@ -102,7 +102,7 @@ uint8_t VS1053::readPlugin(const char *plugname)
     if (type >= 4)
     {
       f_close(fp);
-      return 0xFF;
+      return type;//254;
     }
 
     len = f_readByte(fp);    len <<= 8;
@@ -120,20 +120,26 @@ uint8_t VS1053::readPlugin(const char *plugname)
     // set address
     sciWrite(VS1053_REG_WRAMADDR, addr + offsets[type]);
     // write data
-    while(len -= 2)
-    {
+    // while((len -= 2))
+    // {
+    //   uint16_t data;
+    //   data = f_readByte(fp);    data <<= 8;
+    //   data |= f_readByte(fp);
+    //   sciWrite(VS1053_REG_WRAM, data);
+    // }
+    do {
       uint16_t data;
       data = f_readByte(fp);    data <<= 8;
       data |= f_readByte(fp);
       sciWrite(VS1053_REG_WRAM, data);
-    }
+    } while ((len -=2));
   }
 
   f_close(fp);
-  return 0xFF;
+  return 253;
 }
 
-bool VS1053::prepareRecordOgg(const char *plugname)
+uint8_t VS1053::prepareRecordOgg(const char *plugname)
 {
   sciWrite(VS1053_REG_CLOCKF, 0xC000);  // set max clock
   _delay_ms(1);    while (! readyForData() );
@@ -142,18 +148,19 @@ bool VS1053::prepareRecordOgg(const char *plugname)
 
   softReset();
   _delay_ms(1);    while (! readyForData() );
+  spi.setSpeed(1);
 
   sciWrite(VS1053_SCI_AIADDR, 0);
   // disable all interrupts except SCI
   sciWrite(VS1053_REG_WRAMADDR, VS1053_INT_ENABLE);
   sciWrite(VS1053_REG_WRAM, 0x02);
 
-  int pluginStartAddr = readPlugin(plugname);
-  if (pluginStartAddr == 0xFF) return false;
-  // Serial.print("Plugin at $"); Serial.println(pluginStartAddr, HEX);
-  if (pluginStartAddr != 0x34) return false;
+  uint8_t pluginStartAddr = readPlugin(plugname);
+  // if (pluginStartAddr == 0xFF) return false;
+  // // Serial.print("Plugin at $"); Serial.println(pluginStartAddr, HEX);
+  // if (pluginStartAddr != 0x34) return false;
 
-  return true;
+  return pluginStartAddr;
 }
 
 void VS1053::loadPlugin(void)
@@ -303,22 +310,22 @@ uint8_t VS1053::startRecordOgg(const char *name, uint16_t sample_rate, bool mic)
 {
   /* Set VS1053 mode bits as instructed in the VS1053b Ogg Vorbis Encoder
      manual. Note: for microphone input, leave SMF_LINE1 unset! */
-
   uint8_t error;
+  error = prepareRecordOgg("v44k1q05.img");
+  if(error != 0x34)
+  // if(! error)
+  {
+    return error;
+  }
+
   error = f_open(fp, name, FA_WRITE | FA_CREATE_ALWAYS);
   if (error != FR_OK)
   {
     return error;
   }
 
-  error = prepareRecordOgg("v44k1q05.img");
-  if(! error)
-  {
-    return error;
-  }
-
-  sciWrite(VS1053_REG_CLOCKF, 0x6000);
-  spi.setSpeed(1);
+  // sciWrite(VS1053_REG_CLOCKF, 0x6000);
+  // spi.setSpeed(1);
   _delay_ms(100);
   while(! readyForData());
 
@@ -342,13 +349,12 @@ uint8_t VS1053::startRecordOgg(const char *name, uint16_t sample_rate, bool mic)
   sciWrite(VS1053_SCI_AIADDR, 0x34);
   _delay_ms(1);    while (! readyForData() );
 
-  return error;
+  return 0;
 }
 
 void VS1053::stopRecord(void)
 {
   sciWrite(VS1053_SCI_AICTRL3, 1);
-  while (! readyForData() );
   saveRecordedData(1);
 }
 
@@ -385,8 +391,9 @@ uint8_t VS1053::saveRecordedData(uint8_t wrap)
 
   if (wrap)
   {
+    // addr = 0;
     waiting = recordedWordsWaiting();
-    for (addr = 0; addr < waiting - 1; addr++)
+    for (addr = 0; addr < waiting - 1; addr ++)
     {
       t = recordedReadWord();
       buffer[addr] = t >> 8;

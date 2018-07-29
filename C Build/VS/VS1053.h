@@ -99,7 +99,7 @@ class VS1053
     uint8_t spiread(void);
 
     uint8_t readPlugin(const char *plugname);
-    bool prepareRecordOgg(const char *plugname);
+    uint8_t prepareRecordOgg(const char *plugname);
 
     void loadPlugin(void);
     void stopRecord(void);
